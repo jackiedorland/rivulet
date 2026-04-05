@@ -1,3 +1,5 @@
+# Don't use Rivulet yet ... it's not usable as a WM! I'm still working on it.
+
 <pre>
                                   ▄▄
 ▄▄  ▄▄             ▀▀             ██        ██
