@@ -1,0 +1,102 @@
+cabal-version:       2.2
+
+name:                rivulet
+version:             0.1.0.0
+synopsis:            Functional layout engine for the River Wayland compositor
+description:         Rivulet is a Haskell DSL and runtime for controlling riverwm.
+homepage:            https://github.com/jackiedorland/Rivulet#readme
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Jackie Dorland
+maintainer:          me@jackiedor.land
+copyright:           2026 Jackie Dorland
+build-type:          Simple
+extra-source-files:  README.md
+
+flag wayland
+  description: Enable Wayland backend (requires wayland-client)
+  default:     True
+  manual:      True
+
+common warnings
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -Wno-unused-matches -Wno-name-shadowing -O2 -funbox-strict-fields
+
+common common-extensions
+  default-extensions:
+      ImportQualifiedPost
+    , DuplicateRecordFields
+    , ExistentialQuantification
+    , FlexibleInstances
+    , FunctionalDependencies
+    , MultiParamTypeClasses
+    , RankNTypes
+    , UndecidableInstances
+
+library
+  import: warnings, common-extensions
+
+  exposed-modules:
+      Rivulet
+    , Rivulet.Monad
+    , Rivulet.Types
+    , Rivulet.DSL
+    , Rivulet.DSL.Keys
+    , Rivulet.DSL.Keysyms
+    , Rivulet.DSL.Layout
+    , Rivulet.FFI.Client
+    , Rivulet.FFI.Protocol
+    , Rivulet.Manager
+    , Rivulet.Manager.Callbacks
+    , Rivulet.Manager.Runtime
+    , Rivulet.Manager.Log
+
+  other-modules:
+      Rivulet.DSL.Combinators
+    , Paths_rivulet
+
+  autogen-modules:
+      Paths_rivulet
+
+  hs-source-dirs:   src
+
+  if flag(wayland)
+    include-dirs:     src/Rivulet/Foreign
+
+    c-sources:
+        src/Rivulet/Foreign/river-window-management-v1.c
+      , src/Rivulet/Foreign/river-xkb-bindings-v1.c
+      , src/Rivulet/Foreign/river-input-management-v1.c
+      , src/Rivulet/Foreign/rivulet_helpers.c
+
+    pkgconfig-depends:  wayland-client
+
+  build-depends:
+      base >=4.14 && <5
+    , containers
+    , text
+    , process
+    , bytestring
+    , stm
+    , mtl
+    , unliftio
+    , co-log
+    , co-log-concurrent
+
+  default-language: Haskell2010
+
+executable rivulet
+  import: warnings
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , rivulet
+                     , directory
+                     , filepath
+                     , process
+                     , unix
+  ghc-options: -rtsopts -threaded
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/Rivulet
