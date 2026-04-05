@@ -13,11 +13,6 @@ copyright:           2026 Jackie Dorland
 build-type:          Simple
 extra-source-files:  README.md
 
-flag wayland
-  description: Enable Wayland backend (requires wayland-client)
-  default:     True
-  manual:      True
-
 common warnings
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -Wno-unused-matches -Wno-name-shadowing -O2 -funbox-strict-fields
 
@@ -59,16 +54,15 @@ library
 
   hs-source-dirs:   src
 
-  if flag(wayland)
-    include-dirs:     src/Rivulet/Foreign
+  include-dirs:     src/Rivulet/Foreign
 
-    c-sources:
-        src/Rivulet/Foreign/river-window-management-v1.c
-      , src/Rivulet/Foreign/river-xkb-bindings-v1.c
-      , src/Rivulet/Foreign/river-input-management-v1.c
-      , src/Rivulet/Foreign/rivulet_helpers.c
+  c-sources:
+      src/Rivulet/Foreign/river-window-management-v1.c
+    , src/Rivulet/Foreign/river-xkb-bindings-v1.c
+    , src/Rivulet/Foreign/river-input-management-v1.c
+    , src/Rivulet/Foreign/rivulet_helpers.c
 
-    pkgconfig-depends:  wayland-client
+  pkgconfig-depends:  wayland-client
 
   build-depends:
       base >=4.14 && <5

@@ -1,10 +1,9 @@
 module Rivulet.DSL.Keys where
 
 import           Rivulet.DSL.Combinators (Combinable (..))
-import           Rivulet.Monad           (RivuletAction)
+import           Rivulet.Monad           (Action)
 
 import           Data.Bits
-import           Data.List               (foldl')
 import           Data.Word
 
 modifierMask :: Modifier -> Word32
@@ -48,7 +47,7 @@ ms # k = Chord (toModifiers ms) (toKeysym k)
 just :: Key a => a -> Chord
 just = (([] :: [Modifier]) #)
 
-type Keybinding = (Chord, RivuletAction)
+type Keybinding = (Chord, Action)
 
 data Chord =
   Chord [Modifier] Keysym

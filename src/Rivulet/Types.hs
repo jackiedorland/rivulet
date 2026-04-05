@@ -5,6 +5,8 @@ import Rivulet.FFI.Protocol
 import Data.Map
 import Data.Set             (Set)
 import Foreign
+import Data.Char (toUpper)
+import Numeric   (showHex)
 
 -- | Represents the arrangement of windows on a monitor.
 type Arrangement = [(WindowId, Rect)]
@@ -39,16 +41,15 @@ data Rect = Rect {
 } deriving (Show)
 
 -- | Unique identifier for a monitor.
-newtype MonitorId  = MonitorId Word8 deriving (Eq, Ord, Show)
+newtype MonitorId   = MonitorId WordPtr          deriving (Eq, Ord)
+newtype WorkspaceId = WorkspaceId (MonitorId, Word8) deriving (Eq, Ord)
+newtype WindowId    = WindowId WordPtr           deriving (Eq, Ord)
+newtype SeatId      = SeatId WordPtr             deriving (Eq, Ord)
 
--- | Unique identifier for a workspace within a monitor.
-newtype WorkspaceId = WorkspaceId (MonitorId, Word8) deriving (Eq, Ord, Show)
-
--- | Unique identifier for a window.
-newtype WindowId = WindowId Word32 deriving (Eq, Ord, Show)
-
--- | Unique identifier for an input device seat.
-newtype SeatId = SeatId Word8 deriving (Eq, Ord, Show)
+instance Show MonitorId   where show (MonitorId p)        = "MonitorId 0x"  <> fmap toUpper (showHex p "")
+instance Show WorkspaceId where show (WorkspaceId (m, i)) = "Workspace "    <> show m <> "/" <> show i
+instance Show WindowId    where show (WindowId p)         = "WindowId 0x"   <> fmap toUpper (showHex p "")
+instance Show SeatId      where show (SeatId p)           = "SeatId 0x"     <> fmap toUpper (showHex p "")
 
 -- | Default border settings with no border and transparent color.
 defaultBorder :: Border

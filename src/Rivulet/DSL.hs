@@ -3,6 +3,8 @@ module Rivulet.DSL where
 import           Rivulet.DSL.Combinators (Combinable (..), LayoutList,
                                           toLayouts)
 import           Rivulet.DSL.Keys
+import           Rivulet.FFI.Protocol    (riverWindowManagerV1ExitSession,
+                                          riverWindowV1Close)
 import           Rivulet.Monad
 import           Rivulet.Types
 
@@ -18,7 +20,7 @@ type ConfigM a = WriterT Config Identity a
 -- keybinding monad
 type KeybindingM a = WriterT [Keybinding] Identity a
 
-bind :: Chord -> RivuletAction -> KeybindingM ()
+bind :: Chord -> Action -> KeybindingM ()
 bind chord action = tell [(chord, action)]
 
 runKeybindings :: KeybindingM () -> [Keybinding]
@@ -48,7 +50,7 @@ instance Combinable RuleAction RuleAction where
 instance Combinable [RuleAction] RuleAction where
   items = id
 
-instance Binds Chord RivuletAction (KeybindingM ()) where
+instance Binds Chord Action (KeybindingM ()) where
   (~>) = bind
 
 infix 1 ~>
@@ -140,50 +142,53 @@ borders :: Int -> (Word32, Word32) -> ConfigM ()
 borders w (unfocused, focused) =
   tell $ mempty {cfgBorders = Just (mkBorder unfocused, mkBorder focused)}
   where
-    mkBorder c = Border {edges = 0xf, borderWidth = w, color = c}
+    mkBorder c = Border {edges = 0xF, borderWidth = w, color = c}
 
 debug :: Bool -> ConfigM ()
 debug enabled = tell $ mempty {cfgDebug = Just enabled}
 
 -- actions
-quit :: RivuletAction
-quit = return ()
+exitSession :: Action
+exitSession = do
+  state <- getState
+  liftIO $ riverWindowManagerV1ExitSession (rawWM state)
 
-focusNext :: RivuletAction
+closeFocused :: Action
+closeFocused = withFocused $ \_ win ->
+  liftIO $ riverWindowV1Close (rawWindow win)
+
+focusNext :: Action
 focusNext = return ()
 
-focusPrev :: RivuletAction
+focusPrev :: Action
 focusPrev = return ()
 
-swapNext :: RivuletAction
+swapNext :: Action
 swapNext = return ()
 
-swapPrev :: RivuletAction
+swapPrev :: Action
 swapPrev = return ()
 
-closeFocused :: RivuletAction
-closeFocused = return ()
-
-toggleFloat :: RivuletAction
+toggleFloat :: Action
 toggleFloat = return ()
 
-toggleFullscreen :: RivuletAction
+toggleFullscreen :: Action
 toggleFullscreen = return ()
 
-cycleLayout :: RivuletAction
+cycleLayout :: Action
 cycleLayout = return ()
 
-sendToWorkspace :: String -> RivuletAction
+sendToWorkspace :: String -> Action
 sendToWorkspace _ = return ()
 
-focusWorkspace :: String -> RivuletAction
+focusWorkspace :: String -> Action
 focusWorkspace _ = return ()
 
-focusMonitor :: String -> RivuletAction
+focusMonitor :: String -> Action
 focusMonitor _ = return ()
 
-sendToMonitor :: String -> RivuletAction
+sendToMonitor :: String -> Action
 sendToMonitor _ = return ()
 
-spawn :: String -> RivuletAction
+spawn :: String -> Action
 spawn cmd = liftIO $ void $ spawnProcess cmd []

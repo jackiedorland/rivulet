@@ -483,10 +483,14 @@ foreign import capi "river-window-management-v1.h river_window_v1_use_ssd"
 -- Parameters:
 --   - @edges@: Bitfield indicating which edges to draw (north, south, east, west)
 --   - @width@: Border width in pixels
---   - @r, g, b, a@: Border color (0-255 each) and alpha channel
+--   - @color@: Border color as 0xRRGGBBAA
 riverWindowV1SetBorders
-  :: Ptr RiverWindowV1 -> Word32 -> Int -> Word32 -> Word32 -> Word32 -> Word32 -> IO ()
-riverWindowV1SetBorders win edges width r g b a =
+  :: Ptr RiverWindowV1 -> Word32 -> Int -> Word32 -> IO ()
+riverWindowV1SetBorders win edges width color = do
+  let r = (color `shiftR` 24) .&. 0xFF
+      g = (color `shiftR` 16) .&. 0xFF
+      b = (color `shiftR` 8) .&. 0xFF
+      a = color .&. 0xFF
   river_window_v1_set_borders win (fi edges) (fi width) (fi r) (fi g) (fi b) (fi a)
 
 foreign import capi "river-window-management-v1.h river_window_v1_set_borders"

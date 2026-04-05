@@ -54,10 +54,11 @@ defaultConfig =
 
 recompileIfStale :: FilePath -> FilePath -> IO ()
 recompileIfStale src out = do
+  -- this doesn't check for staleness yet, recompiles every time
   (code, _, err) <-
     readProcessWithExitCode
       "cabal"
-      ["exec", "ghc", "--", "--make", src, "-o", out, "-rtsopts", "-threaded"]
+      ["exec", "ghc", "--", "--make", src, "-o", out, "-rtsopts", "-threaded", "-XBlockArguments"]
       ""
   case code of
     ExitSuccess -> pure ()

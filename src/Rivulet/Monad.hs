@@ -6,13 +6,14 @@ import           Rivulet.Types
 import           Control.Concurrent.STM
 import           Control.Monad.Reader
 import qualified Data.Map.Strict        as Map
+import           Data.Maybe             (listToMaybe, maybeToList)
 
 data Runtime = Runtime
   { rtLogger :: Logger
   , rtState  :: TVar WMState
   }
 
-type RivuletAction = Rivulet ()
+type Action = Rivulet ()
 
 type Rivulet a = ReaderT (TVar WMState) IO a
 
@@ -36,3 +37,16 @@ modifyWindow wmState winId f =
 modifySeat :: TVar WMState -> SeatId -> (Seat -> Seat) -> IO ()
 modifySeat wmState seatId f =
   updateState wmState $ \s -> s {seats = Map.adjust f seatId (seats s)}
+
+withFocused :: (WindowId -> Window -> Rivulet ()) -> Rivulet ()
+withFocused f = do
+  state <- getState
+  let mFocused = listToMaybe
+        [ (winId, win)
+        | seat  <- Map.elems (seats state)
+        , winId <- maybeToList (keyboardFocus seat)
+        , win   <- maybeToList (Map.lookup winId (windows state))
+        ]
+  case mFocused of
+    Nothing          -> pure ()
+    Just (winId, win) -> f winId win

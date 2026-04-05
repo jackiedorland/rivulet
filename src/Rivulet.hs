@@ -26,7 +26,6 @@ module Rivulet
   , Modifier(..)
   , Chord(..)
   , module Rivulet.DSL.Keysyms
-  , quit
   , focusNext
   , focusPrev
   , swapNext
@@ -39,6 +38,7 @@ module Rivulet
   , focusWorkspace
   , focusMonitor
   , sendToMonitor
+  , exitSession
   ) where
 
 import           Rivulet.DSL

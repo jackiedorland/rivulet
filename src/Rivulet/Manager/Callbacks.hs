@@ -18,8 +18,8 @@ import           Rivulet.Types
 import           System.Exit
 
 -- helpers
-ptrId :: Ptr a -> Word32
-ptrId = fromIntegral . ptrToWordPtr
+ptrId :: Ptr a -> WordPtr
+ptrId = ptrToWordPtr
 
 defaultLayouts :: [SomeLayout]
 defaultLayouts = [SomeLayout Tall]
@@ -54,7 +54,7 @@ onWmWindow runtime _ listener _ winPtr = do
   let logger = rtLogger runtime
       wmState = rtState runtime
   let winId = WindowId (ptrId winPtr)
-  logEvent logger "window" $ "new: " <> show winId
+  logEvent logger "window" $ show winId <> " -> created"
   node <- riverWindowV1GetNode winPtr
   updateState wmState $ \s ->
     let defaultWsId =
@@ -98,7 +98,7 @@ onWmOutput ::
 onWmOutput runtime config listener _ outPtr = do
   let logger = rtLogger runtime
       wmState = rtState runtime
-  let monId = MonitorId (fromIntegral (ptrId outPtr))
+  let monId = MonitorId (ptrId outPtr)
       wsId = WorkspaceId (monId, 0)
       mon =
         Monitor
@@ -113,7 +113,7 @@ onWmOutput runtime config listener _ outPtr = do
           , wsWindows = []
           , layouts = fromMaybe defaultLayouts (cfgLayouts config)
           }
-  logEvent logger "output" $ "new: " <> show monId
+  logEvent logger "output" $ show monId <> " -> connected"
   updateState wmState $ \s ->
     s
       { monitors = Map.insert monId mon (monitors s)
@@ -158,7 +158,7 @@ onWmSeat runtime config listener _ seatPtr = do
     riverXkbBindingsSeatV1AddListener xkbSeatPtr
       $ XkbBindingsSeatListener
           {Rivulet.FFI.Protocol.onXkbSeatAteUnboundKey = \_ -> pure ()}
-  let sid = SeatId (fromIntegral (ptrId seatPtr))
+  let sid = SeatId (ptrId seatPtr)
       seat =
         Seat
           { rawSeat = seatPtr
@@ -171,7 +171,7 @@ onWmSeat runtime config listener _ seatPtr = do
           , pendingBindings = newBindings
           }
   logEvent logger "seat"
-    $ "new: " <> show sid <> " bindings=" <> show (length newBindings)
+    $ show sid <> " -> connected, bindings=" <> show (length newBindings)
   updateState wmState $ \s -> s {seats = Map.insert sid seat (seats s)}
   cleaner1 <- riverSeatV1AddListener seatPtr listener
   updateState wmState $ \s ->
@@ -180,7 +180,7 @@ onWmSeat runtime config listener _ seatPtr = do
 -- Output listener callbacks
 onOutRemoved :: TVar WMState -> Ptr RiverOutputV1 -> IO ()
 onOutRemoved wmState outPtr = do
-  let monId = MonitorId (fromIntegral (ptrId outPtr))
+  let monId = MonitorId (ptrId outPtr)
   state <- readTVarIO wmState
   sequence_ $ Map.lookup monId (monitorCleanup state)
   updateState wmState $ \s ->
@@ -193,7 +193,7 @@ onOutWlOutput _ _ _ = pure ()
 
 onOutPosition :: TVar WMState -> Ptr RiverOutputV1 -> Int -> Int -> IO ()
 onOutPosition wmState outPtr x y = do
-  let monId = MonitorId (fromIntegral (ptrId outPtr))
+  let monId = MonitorId (ptrId outPtr)
   modifyMonitor wmState monId $ \m ->
     let geo = monitorGeometry m
      in m {monitorGeometry = geo {x = x, y = y}}
@@ -202,8 +202,8 @@ onOutDimensions :: Runtime -> Ptr RiverOutputV1 -> Int -> Int -> IO ()
 onOutDimensions runtime outPtr w h = do
   let logger = rtLogger runtime
       wmState = rtState runtime
-  let monId = MonitorId (fromIntegral (ptrId outPtr))
-  logEvent logger "output" $ show monId <> " " <> show w <> "×" <> show h
+  let monId = MonitorId (ptrId outPtr)
+  logEvent logger "output" $ show monId <> " size=" <> show w <> "×" <> show h
   modifyMonitor wmState monId $ \m ->
     let geo = monitorGeometry m
      in m
@@ -214,7 +214,7 @@ onOutDimensions runtime outPtr w h = do
 -- Seat listener callbacks
 onSeatRemoved :: TVar WMState -> Ptr RiverSeatV1 -> IO ()
 onSeatRemoved wmState seatPtr = do
-  let seatId = SeatId (fromIntegral (ptrId seatPtr))
+  let seatId = SeatId (ptrId seatPtr)
   state <- readTVarIO wmState
   sequence_ $ Map.lookup seatId (seatCleanup state)
   updateState wmState $ \s ->
@@ -228,13 +228,13 @@ onSeatWlSeat _ _ _ = pure ()
 onSeatPointerEnter ::
      TVar WMState -> Ptr RiverSeatV1 -> Ptr RiverWindowV1 -> IO ()
 onSeatPointerEnter wmState seatPtr winPtr = do
-  let seatId = SeatId (fromIntegral (ptrId seatPtr))
+  let seatId = SeatId (ptrId seatPtr)
   let winId = WindowId (ptrId winPtr)
   modifySeat wmState seatId $ \s -> s {mouseFocus = Just winId}
 
 onSeatPointerLeave :: TVar WMState -> Ptr RiverSeatV1 -> IO ()
 onSeatPointerLeave wmState seatPtr = do
-  let seatId = SeatId (fromIntegral (ptrId seatPtr))
+  let seatId = SeatId (ptrId seatPtr)
   modifySeat wmState seatId $ \s -> s {mouseFocus = Nothing}
 
 onSeatWindowInteraction ::
@@ -245,7 +245,7 @@ onSeatWindowInteraction ::
   -> IO ()
 onSeatWindowInteraction runtime wmPtr seatPtr winPtr = do
   let wmState = rtState runtime
-  let seatId = SeatId (fromIntegral (ptrId seatPtr))
+  let seatId = SeatId (ptrId seatPtr)
       winId = WindowId (ptrId winPtr)
   changed <-
     atomically $ do
@@ -286,7 +286,7 @@ onWinClosed runtime winPtr = do
   let logger = rtLogger runtime
       wmState = rtState runtime
   let winId = WindowId (ptrId winPtr)
-  logEvent logger "window" $ "closed: " <> show winId
+  logEvent logger "window" $ show winId <> " -> closed"
   state <- readTVarIO wmState
   sequence_ $ Map.lookup winId (windowCleanup state)
   updateState wmState $ \s ->
@@ -383,7 +383,7 @@ onWinFullscreenReq ::
      TVar WMState -> Ptr RiverWindowV1 -> Maybe (Ptr RiverOutputV1) -> IO ()
 onWinFullscreenReq wmState winPtr mOutPtr = do
   let winId = WindowId (ptrId winPtr)
-  let monId = fmap (MonitorId . fromIntegral . ptrId) mOutPtr
+  let monId = fmap (MonitorId . ptrId) mOutPtr
   modifyWindow wmState winId $ \w -> w {fullscreen = (True, monId)}
 
 onWinExitFullscreenReq :: TVar WMState -> Ptr RiverWindowV1 -> IO ()

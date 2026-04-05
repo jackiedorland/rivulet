@@ -86,13 +86,13 @@ enumerateGlobals logger display registry = do
       registry
       (\_ name iface ver -> do
          logEvent logger "registry"
-           $ iface <> " v" <> show ver <> " (name=" <> show name <> ")"
+           $ iface <> " v" <> show ver <> " -> registered (name=" <> show name <> ")"
          modifyIORef globalsRef ((name, iface, ver) :))
       (\_ name -> logEvent logger "registry" $ "removed: name=" <> show name)
   logInfo logger "registry listener added"
-  logInfo logger "roundtrip #1 → enumerating globals"
+  logInfo logger "initial roundtrip ... enumerating globals"
   _ <- wlDisplayRoundtrip display
-  logInfo logger "roundtrip #1 → done"
+  logInfo logger "initial roundtrip ... done"
   globals <- readIORef globalsRef
   separator logger
   let riverGlobals = filter (\(_, iface, _) -> take 5 iface == "river") globals
@@ -240,11 +240,13 @@ initialize runtime config = do
 runAutostart :: Logger -> Config -> IO ()
 runAutostart logger config = mapM_ launch (cfgAutostart config)
   where
-    launch (_, cmd) = do
-      logInfo logger $ "autostart: " <> cmd
-      let (exe:args) = words cmd
-      _ <- spawnProcess exe args
-      pure ()
+    launch (_, cmd) =
+      case words cmd of
+        [] -> pure ()
+        (exe:args) -> do
+          logInfo logger $ "autostart: " <> cmd
+          _ <- spawnProcess exe args
+          pure ()
 
 -- eventLoop
 eventLoop :: Logger -> Ptr WlDisplay -> IO ()
@@ -260,18 +262,25 @@ eventLoop logger display = do
 rivulet :: ConfigM () -> IO ()
 rivulet configM = do
   let config = runIdentity (execWriterT configM)
-      debugFromConfig = fromMaybe False (cfgDebug config)
+
   banner
-  mLogPath <- lookupEnv "RIVULET_LOG"
-  mDebug <- lookupEnv "RIVULET_DEBUG"
-  let debugEnabled = fromMaybe debugFromConfig (mDebug >>= readBoolEnv)
+  debugEnabled <- resolveDebug config
+  mLogPath     <- lookupEnv "RIVULET_LOG"
+
   withLogger debugEnabled mLogPath $ \logger -> do
-    logInfo logger "rivulet starting..."
+    logInfo logger "rivulet starting up ..."
+
     (display, registry) <- connect logger
-    globals <- enumerateGlobals logger display registry
-    wmState <- setup logger registry globals
-    stateVar <- newTVarIO wmState
-    let runtime = Runtime {rtLogger = logger, rtState = stateVar}
+    globals  <- enumerateGlobals logger display registry
+
+    stateVar <- setup logger registry globals >>= newTVarIO
+    let runtime = Runtime logger stateVar
+
     cleanupWM <- initialize runtime config
+    
     runAutostart logger config
     finally (eventLoop logger display) cleanupWM
+  where
+    resolveDebug config = do
+      mDebug <- lookupEnv "RIVULET_DEBUG"
+      pure $ fromMaybe (fromMaybe False (cfgDebug config)) (mDebug >>= readBoolEnv)
