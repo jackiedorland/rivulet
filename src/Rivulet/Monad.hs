@@ -1,16 +1,16 @@
 module Rivulet.Monad where
 
-import Rivulet.Manager.Log (Logger)
+import Rivulet.Manager.Log    (Logger)
 import Rivulet.Types
 
 import Control.Concurrent.STM
 import Control.Monad.Reader
-import Data.Map.Strict qualified as Map
-import Data.Maybe (listToMaybe, maybeToList)
+import Data.Map.Strict        qualified as Map
+import Data.Maybe             (listToMaybe, maybeToList)
 
 data Runtime = Runtime
     { rtLogger :: Logger
-    , rtState :: TVar WMState
+    , rtState  :: TVar WMState
     }
 
 type Action = Rivulet ()
@@ -25,6 +25,26 @@ getState = ask >>= \var -> liftIO $ readTVarIO var
 
 updateState :: TVar WMState -> (WMState -> WMState) -> IO ()
 updateState var f = atomically $ modifyTVar var f
+
+registerCleanup :: TVar WMState -> CleanupRef -> IO () -> IO ()
+registerCleanup wmState ref cleanup =
+    updateState wmState $ \s ->
+        s{cleanupRegistry = Map.insert ref cleanup (cleanupRegistry s)}
+
+runCleanup :: TVar WMState -> CleanupRef -> IO ()
+runCleanup wmState ref = do
+    mCleanup <-
+        atomically $ do
+            s <- readTVar wmState
+            let registry = cleanupRegistry s
+            writeTVar wmState s{cleanupRegistry = Map.delete ref registry}
+            pure (Map.lookup ref registry)
+    sequence_ mCleanup
+
+unregisterCleanup :: TVar WMState -> CleanupRef -> IO ()
+unregisterCleanup wmState ref =
+    updateState wmState $ \s ->
+        s{cleanupRegistry = Map.delete ref (cleanupRegistry s)}
 
 modifyMonitor :: TVar WMState -> MonitorId -> (Monitor -> Monitor) -> IO ()
 modifyMonitor wmState monId f =
@@ -49,5 +69,5 @@ withFocused f = do
                 , win <- maybeToList (Map.lookup winId (windows state))
                 ]
     case mFocused of
-        Nothing -> pure ()
+        Nothing           -> pure ()
         Just (winId, win) -> f winId win

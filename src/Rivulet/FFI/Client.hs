@@ -1,33 +1,29 @@
 {-# LANGUAGE CApiFFI #-}
 
-module Rivulet.FFI.Client (
-    WlDisplay,
-    WlInterface,
-    WlProxy,
-    WlRegistry,
-
-    wlDisplayConnect,
-    wlDisplayDisconnect,
-    wlDisplayGetFd,
-
-    wlDisplayDispatch,
-    wlDisplayDispatchPending,
-    wlDisplayFlush,
-    wlDisplayRoundtrip,
-
-    wlDisplayGetRegistry,
-    wlRegistryAddListener,
-    wlRegistryBind,
-
-    RegistryGlobalCallback,
-    RegistryGlobalRemoveCallback,
-    mkRegistryGlobalCallback,
-    mkRegistryGlobalRemoveCallback,
-) where
+module Rivulet.FFI.Client
+    ( WlDisplay
+    , WlInterface
+    , WlProxy
+    , WlRegistry
+    , wlDisplayConnect
+    , wlDisplayDisconnect
+    , wlDisplayGetFd
+    , wlDisplayDispatch
+    , wlDisplayDispatchPending
+    , wlDisplayFlush
+    , wlDisplayRoundtrip
+    , wlDisplayGetRegistry
+    , wlRegistryAddListener
+    , wlRegistryBind
+    , RegistryGlobalCallback
+    , RegistryGlobalRemoveCallback
+    , mkRegistryGlobalCallback
+    , mkRegistryGlobalRemoveCallback
+    ) where
 
 import Foreign
-import Foreign.C.String (CString, peekCString, withCString)
-import Foreign.C.Types (CInt (..), CUInt (..))
+import Foreign.C.String   (CString, peekCString, withCString)
+import Foreign.C.Types    (CInt (..), CUInt (..))
 import System.Posix.Types (Fd (..))
 
 data WlDisplay
@@ -42,7 +38,7 @@ data WlInterface
 wlDisplayConnect :: Maybe String -> IO (Maybe (Ptr WlDisplay))
 wlDisplayConnect mName = do
     ptr <- case mName of
-        Nothing -> wl_display_connect nullPtr
+        Nothing   -> wl_display_connect nullPtr
         Just name -> withCString name wl_display_connect
     pure $ if ptr == nullPtr then Nothing else Just ptr
 

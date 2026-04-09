@@ -1,28 +1,21 @@
 module Rivulet.DSL where
 
-import Rivulet.DSL.Combinators (
-    Combinable (..),
-    LayoutList,
-    toLayouts,
- )
+import Rivulet.DSL.Combinators (Combinable (..), LayoutList, toLayouts)
 import Rivulet.DSL.Keys
-import Rivulet.FFI.Protocol (
-    riverWindowManagerV1ExitSession,
-    riverWindowManagerV1ManageDirty,
-    riverWindowV1Close,
- )
+import Rivulet.FFI.Protocol    (riverWindowManagerV1ExitSession, riverWindowManagerV1ManageDirty,
+                                riverWindowV1Close)
 import Rivulet.Monad
 import Rivulet.Types
 
-import Control.Applicative ((<|>))
-import Control.Monad (void)
+import Control.Applicative     ((<|>))
+import Control.Monad           (void)
 import Control.Monad.Writer
 import Data.Functor.Identity
-import Data.List (find)
-import Data.Map.Strict qualified as Map
-import Data.Set qualified as Set
+import Data.List               (find)
+import Data.Map.Strict         qualified as Map
+import Data.Set                qualified as Set
 import Data.Word
-import System.Process (spawnProcess)
+import System.Process          (spawnProcess)
 
 type ConfigM a = WriterT Config Identity a
 
@@ -109,14 +102,14 @@ autostart :: AutostartM () -> ConfigM ()
 autostart a = tell $ mempty{cfgAutostart = runAutostart a}
 
 data Config = Config
-    { cfgMonitors :: [(String, [String])]
-    , cfgLayouts :: Maybe [SomeLayout]
-    , cfgGaps :: Maybe Int -- Nothing = 0
-    , cfgBorders :: Maybe (Border, Border)
-    , cfgDebug :: Maybe Bool
-    , cfgRules :: [Rule]
+    { cfgMonitors    :: [(String, [String])]
+    , cfgLayouts     :: Maybe [SomeLayout]
+    , cfgGaps        :: Maybe Int -- Nothing = 0
+    , cfgBorders     :: Maybe (Border, Border)
+    , cfgDebug       :: Maybe Bool
+    , cfgRules       :: [Rule]
     , cfgKeybindings :: [Keybinding]
-    , cfgAutostart :: [(Maybe String, String)]
+    , cfgAutostart   :: [(Maybe String, String)]
     }
 
 data Rule
@@ -259,7 +252,7 @@ clearFocusOutsideWorkspaceOnMonitor monId targetWs s =
 isWorkspaceVisibleOnMonitor :: WMState -> MonitorId -> WorkspaceId -> Bool
 isWorkspaceVisibleOnMonitor state monId targetWs =
     case Map.lookup monId (monitors state) of
-        Nothing -> False
+        Nothing  -> False
         Just mon -> activeSpace mon == targetWs
 
 sendToWorkspace :: String -> Action

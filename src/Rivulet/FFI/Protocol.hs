@@ -1,159 +1,142 @@
-{-# LANGUAGE CApiFFI #-}
+{-# LANGUAGE CApiFFI         #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Rivulet.FFI.Protocol (
-    WlOutput,
-    WlSurface,
-
-    WlFixed (..),
-    fromWlFixed,
-    toWlFixed,
-
-    RiverDecorationV1,
-    RiverInputDeviceV1,
-    RiverInputManagerV1,
-    RiverLayerShellOutputV1,
-    RiverLayerShellSeatV1,
-    RiverLayerShellV1,
-    RiverNodeV1,
-    RiverOutputV1,
-    RiverPointerBindingV1,
-    RiverSeatV1,
-    RiverShellSurfaceV1,
-    RiverWindowManagerV1,
-    RiverWindowV1,
-    RiverXkbBindingV1,
-    RiverXkbBindingsSeatV1,
-    RiverXkbBindingsV1,
-
-    riverInputManagerV1Interface,
-    riverLayerShellV1Interface,
-    riverWindowManagerV1Interface,
-    riverXkbBindingsV1Interface,
-
-    LayerShellOutputListener (..),
-    LayerShellSeatListener (..),
-    riverLayerShellOutputV1AddListener,
-    riverLayerShellOutputV1Destroy,
-    riverLayerShellOutputV1SetDefault,
-    riverLayerShellSeatV1AddListener,
-    riverLayerShellSeatV1Destroy,
-    riverLayerShellV1Destroy,
-    riverLayerShellV1GetOutput,
-    riverLayerShellV1GetSeat,
-
-    riverWindowManagerV1Destroy,
-    riverWindowManagerV1ExitSession,
-    riverWindowManagerV1GetShellSurface,
-    riverWindowManagerV1ManageDirty,
-    riverWindowManagerV1ManageFinish,
-    riverWindowManagerV1RenderFinish,
-    riverWindowManagerV1Stop,
-
-    WindowManagerListener (..),
-    riverWindowManagerV1AddListener,
-
-    riverWindowV1Close,
-    riverWindowV1Destroy,
-    riverWindowV1ExitFullscreen,
-    riverWindowV1Fullscreen,
-    riverWindowV1GetDecorationAbove,
-    riverWindowV1GetDecorationBelow,
-    riverWindowV1GetNode,
-    riverWindowV1Hide,
-    riverWindowV1InformFullscreen,
-    riverWindowV1InformMaximized,
-    riverWindowV1InformNotFullscreen,
-    riverWindowV1InformResizeEnd,
-    riverWindowV1InformResizeStart,
-    riverWindowV1InformUnmaximized,
-    riverWindowV1ProposeDimensions,
-    riverWindowV1SetBorders,
-    riverWindowV1SetCapabilities,
-    riverWindowV1SetClipBox,
-    riverWindowV1SetContentClipBox,
-    riverWindowV1SetDimensionBounds,
-    riverWindowV1SetTiled,
-    riverWindowV1Show,
-    riverWindowV1UseCsd,
-    riverWindowV1UseSsd,
-
-    WindowListener (..),
-    riverWindowV1AddListener,
-
-    riverDecorationV1Destroy,
-    riverDecorationV1SetOffset,
-    riverDecorationV1SyncNextCommit,
-
-    riverShellSurfaceV1Destroy,
-    riverShellSurfaceV1GetNode,
-    riverShellSurfaceV1SyncNextCommit,
-
-    riverNodeV1Destroy,
-    riverNodeV1PlaceAbove,
-    riverNodeV1PlaceBelow,
-    riverNodeV1PlaceBottom,
-    riverNodeV1PlaceTop,
-    riverNodeV1SetPosition,
-
-    OutputListener (..),
-    riverOutputV1AddListener,
-    riverOutputV1Destroy,
-    riverOutputV1SetPresentationMode,
-
-    SeatListener (..),
-    riverSeatV1AddListener,
-    riverSeatV1ClearFocus,
-    riverSeatV1Destroy,
-    riverSeatV1FocusShellSurface,
-    riverSeatV1FocusWindow,
-    riverSeatV1GetPointerBinding,
-    riverSeatV1OpEnd,
-    riverSeatV1OpStartPointer,
-    riverSeatV1PointerWarp,
-    riverSeatV1SetXcursorTheme,
-
-    PointerBindingListener (..),
-    riverPointerBindingV1AddListener,
-    riverPointerBindingV1Destroy,
-    riverPointerBindingV1Disable,
-    riverPointerBindingV1Enable,
-
-    XkbBindingListener (..),
-    XkbBindingsSeatListener (..),
-    riverXkbBindingV1AddListener,
-    riverXkbBindingV1Destroy,
-    riverXkbBindingV1Disable,
-    riverXkbBindingV1Enable,
-    riverXkbBindingV1SetLayoutOverride,
-    riverXkbBindingsSeatV1AddListener,
-    riverXkbBindingsSeatV1CancelEnsureNextKeyEaten,
-    riverXkbBindingsSeatV1Destroy,
-    riverXkbBindingsSeatV1EnsureNextKeyEaten,
-    riverXkbBindingsV1Destroy,
-    riverXkbBindingsV1GetSeat,
-    riverXkbBindingsV1GetXkbBinding,
-
-    InputManagerListener (..),
-    riverInputManagerV1AddListener,
-    riverInputManagerV1CreateSeat,
-    riverInputManagerV1Destroy,
-    riverInputManagerV1DestroySeat,
-    riverInputManagerV1Stop,
-
-    InputDeviceListener (..),
-    riverInputDeviceV1AddListener,
-    riverInputDeviceV1AssignToSeat,
-    riverInputDeviceV1Destroy,
-    riverInputDeviceV1MapToOutput,
-    riverInputDeviceV1MapToRectangle,
-    riverInputDeviceV1SetRepeatInfo,
-    riverInputDeviceV1SetScrollFactor,
-) where
+module Rivulet.FFI.Protocol
+    ( WlOutput
+    , WlSurface
+    , WlFixed (..)
+    , fromWlFixed
+    , toWlFixed
+    , RiverDecorationV1
+    , RiverInputDeviceV1
+    , RiverInputManagerV1
+    , RiverLayerShellOutputV1
+    , RiverLayerShellSeatV1
+    , RiverLayerShellV1
+    , RiverNodeV1
+    , RiverOutputV1
+    , RiverPointerBindingV1
+    , RiverSeatV1
+    , RiverShellSurfaceV1
+    , RiverWindowManagerV1
+    , RiverWindowV1
+    , RiverXkbBindingV1
+    , RiverXkbBindingsSeatV1
+    , RiverXkbBindingsV1
+    , riverInputManagerV1Interface
+    , riverLayerShellV1Interface
+    , riverWindowManagerV1Interface
+    , riverXkbBindingsV1Interface
+    , LayerShellOutputListener (..)
+    , LayerShellSeatListener (..)
+    , riverLayerShellOutputV1AddListener
+    , riverLayerShellOutputV1Destroy
+    , riverLayerShellOutputV1SetDefault
+    , riverLayerShellSeatV1AddListener
+    , riverLayerShellSeatV1Destroy
+    , riverLayerShellV1Destroy
+    , riverLayerShellV1GetOutput
+    , riverLayerShellV1GetSeat
+    , riverWindowManagerV1Destroy
+    , riverWindowManagerV1ExitSession
+    , riverWindowManagerV1GetShellSurface
+    , riverWindowManagerV1ManageDirty
+    , riverWindowManagerV1ManageFinish
+    , riverWindowManagerV1RenderFinish
+    , riverWindowManagerV1Stop
+    , WindowManagerListener (..)
+    , riverWindowManagerV1AddListener
+    , riverWindowV1Close
+    , riverWindowV1Destroy
+    , riverWindowV1ExitFullscreen
+    , riverWindowV1Fullscreen
+    , riverWindowV1GetDecorationAbove
+    , riverWindowV1GetDecorationBelow
+    , riverWindowV1GetNode
+    , riverWindowV1Hide
+    , riverWindowV1InformFullscreen
+    , riverWindowV1InformMaximized
+    , riverWindowV1InformNotFullscreen
+    , riverWindowV1InformResizeEnd
+    , riverWindowV1InformResizeStart
+    , riverWindowV1InformUnmaximized
+    , riverWindowV1ProposeDimensions
+    , riverWindowV1SetBorders
+    , riverWindowV1SetCapabilities
+    , riverWindowV1SetClipBox
+    , riverWindowV1SetContentClipBox
+    , riverWindowV1SetDimensionBounds
+    , riverWindowV1SetTiled
+    , riverWindowV1Show
+    , riverWindowV1UseCsd
+    , riverWindowV1UseSsd
+    , WindowListener (..)
+    , riverWindowV1AddListener
+    , riverDecorationV1Destroy
+    , riverDecorationV1SetOffset
+    , riverDecorationV1SyncNextCommit
+    , riverShellSurfaceV1Destroy
+    , riverShellSurfaceV1GetNode
+    , riverShellSurfaceV1SyncNextCommit
+    , riverNodeV1Destroy
+    , riverNodeV1PlaceAbove
+    , riverNodeV1PlaceBelow
+    , riverNodeV1PlaceBottom
+    , riverNodeV1PlaceTop
+    , riverNodeV1SetPosition
+    , OutputListener (..)
+    , riverOutputV1AddListener
+    , riverOutputV1Destroy
+    , riverOutputV1SetPresentationMode
+    , SeatListener (..)
+    , riverSeatV1AddListener
+    , riverSeatV1ClearFocus
+    , riverSeatV1Destroy
+    , riverSeatV1FocusShellSurface
+    , riverSeatV1FocusWindow
+    , riverSeatV1GetPointerBinding
+    , riverSeatV1OpEnd
+    , riverSeatV1OpStartPointer
+    , riverSeatV1PointerWarp
+    , riverSeatV1SetXcursorTheme
+    , PointerBindingListener (..)
+    , riverPointerBindingV1AddListener
+    , riverPointerBindingV1Destroy
+    , riverPointerBindingV1Disable
+    , riverPointerBindingV1Enable
+    , XkbBindingListener (..)
+    , XkbBindingsSeatListener (..)
+    , riverXkbBindingV1AddListener
+    , riverXkbBindingV1Destroy
+    , riverXkbBindingV1Disable
+    , riverXkbBindingV1Enable
+    , riverXkbBindingV1SetLayoutOverride
+    , riverXkbBindingsSeatV1AddListener
+    , riverXkbBindingsSeatV1CancelEnsureNextKeyEaten
+    , riverXkbBindingsSeatV1Destroy
+    , riverXkbBindingsSeatV1EnsureNextKeyEaten
+    , riverXkbBindingsV1Destroy
+    , riverXkbBindingsV1GetSeat
+    , riverXkbBindingsV1GetXkbBinding
+    , InputManagerListener (..)
+    , riverInputManagerV1AddListener
+    , riverInputManagerV1CreateSeat
+    , riverInputManagerV1Destroy
+    , riverInputManagerV1DestroySeat
+    , riverInputManagerV1Stop
+    , InputDeviceListener (..)
+    , riverInputDeviceV1AddListener
+    , riverInputDeviceV1AssignToSeat
+    , riverInputDeviceV1Destroy
+    , riverInputDeviceV1MapToOutput
+    , riverInputDeviceV1MapToRectangle
+    , riverInputDeviceV1SetRepeatInfo
+    , riverInputDeviceV1SetScrollFactor
+    ) where
 
 import Foreign
-import Foreign.C.String (CString, peekCString, withCString)
-import Foreign.C.Types (CInt (..), CUInt (..))
+import Foreign.C.String   (CString, peekCString, withCString)
+import Foreign.C.Types    (CInt (..), CUInt (..))
 
 import Rivulet.FFI.Client (WlInterface, WlProxy)
 
@@ -292,27 +275,27 @@ foreign import ccall "wrapper" mkRawWmOutput :: RawWmOutput -> IO (FunPtr RawWmO
 foreign import ccall "wrapper" mkRawWmSeat :: RawWmSeat -> IO (FunPtr RawWmSeat)
 
 data WindowManagerListener = WindowManagerListener
-    { onWmUnavailable :: Ptr RiverWindowManagerV1 -> IO ()
+    { onWmUnavailable     :: Ptr RiverWindowManagerV1 -> IO ()
     {- ^ Window management is unavailable (another client already managing).
     This is the first and only event if sent.
     -}
-    , onWmFinished :: Ptr RiverWindowManagerV1 -> IO ()
+    , onWmFinished        :: Ptr RiverWindowManagerV1 -> IO ()
     {- ^ Server has finished with the window manager.
     Safe to call 'riverWindowManagerV1Destroy' after this.
     -}
-    , onWmManageStart :: Ptr RiverWindowManagerV1 -> IO ()
+    , onWmManageStart     :: Ptr RiverWindowManagerV1 -> IO ()
     {- ^ Start a manage sequence. Modify window management state, then call
     'riverWindowManagerV1ManageFinish'. See protocol description for full sequence.
     -}
-    , onWmRenderStart :: Ptr RiverWindowManagerV1 -> IO ()
+    , onWmRenderStart     :: Ptr RiverWindowManagerV1 -> IO ()
     {- ^ Start a render sequence. Modify rendering state (positions, borders),
     then call 'riverWindowManagerV1RenderFinish'.
     -}
-    , onWmSessionLocked :: Ptr RiverWindowManagerV1 -> IO ()
+    , onWmSessionLocked   :: Ptr RiverWindowManagerV1 -> IO ()
     , onWmSessionUnlocked :: Ptr RiverWindowManagerV1 -> IO ()
-    , onWmWindow :: Ptr RiverWindowManagerV1 -> Ptr RiverWindowV1 -> IO ()
-    , onWmOutput :: Ptr RiverWindowManagerV1 -> Ptr RiverOutputV1 -> IO ()
-    , onWmSeat :: Ptr RiverWindowManagerV1 -> Ptr RiverSeatV1 -> IO ()
+    , onWmWindow          :: Ptr RiverWindowManagerV1 -> Ptr RiverWindowV1 -> IO ()
+    , onWmOutput          :: Ptr RiverWindowManagerV1 -> Ptr RiverOutputV1 -> IO ()
+    , onWmSeat            :: Ptr RiverWindowManagerV1 -> Ptr RiverSeatV1 -> IO ()
     }
 
 riverWindowManagerV1AddListener ::
@@ -556,24 +539,24 @@ foreign import ccall "wrapper" mkRawWinPresentationHint :: RawWinPresentationHin
 foreign import ccall "wrapper" mkRawWinIdentifier :: RawWinIdentifier -> IO (FunPtr RawWinIdentifier)
 
 data WindowListener = WindowListener
-    { onWinClosed :: Ptr RiverWindowV1 -> IO ()
-    , onWinDimensionsHint :: Ptr RiverWindowV1 -> Int -> Int -> Int -> Int -> IO ()
-    , onWinDimensions :: Ptr RiverWindowV1 -> Int -> Int -> IO ()
-    , onWinAppId :: Ptr RiverWindowV1 -> Maybe String -> IO ()
-    , onWinTitle :: Ptr RiverWindowV1 -> Maybe String -> IO ()
-    , onWinParent :: Ptr RiverWindowV1 -> Maybe (Ptr RiverWindowV1) -> IO ()
-    , onWinDecorationHint :: Ptr RiverWindowV1 -> Word32 -> IO ()
-    , onWinPointerMoveReq :: Ptr RiverWindowV1 -> Ptr RiverSeatV1 -> IO ()
-    , onWinPointerResizeReq :: Ptr RiverWindowV1 -> Ptr RiverSeatV1 -> Word32 -> IO ()
-    , onWinShowMenuReq :: Ptr RiverWindowV1 -> Int -> Int -> IO ()
-    , onWinMaximizeReq :: Ptr RiverWindowV1 -> IO ()
-    , onWinUnmaximizeReq :: Ptr RiverWindowV1 -> IO ()
-    , onWinFullscreenReq :: Ptr RiverWindowV1 -> Maybe (Ptr RiverOutputV1) -> IO ()
+    { onWinClosed            :: Ptr RiverWindowV1 -> IO ()
+    , onWinDimensionsHint    :: Ptr RiverWindowV1 -> Int -> Int -> Int -> Int -> IO ()
+    , onWinDimensions        :: Ptr RiverWindowV1 -> Int -> Int -> IO ()
+    , onWinAppId             :: Ptr RiverWindowV1 -> Maybe String -> IO ()
+    , onWinTitle             :: Ptr RiverWindowV1 -> Maybe String -> IO ()
+    , onWinParent            :: Ptr RiverWindowV1 -> Maybe (Ptr RiverWindowV1) -> IO ()
+    , onWinDecorationHint    :: Ptr RiverWindowV1 -> Word32 -> IO ()
+    , onWinPointerMoveReq    :: Ptr RiverWindowV1 -> Ptr RiverSeatV1 -> IO ()
+    , onWinPointerResizeReq  :: Ptr RiverWindowV1 -> Ptr RiverSeatV1 -> Word32 -> IO ()
+    , onWinShowMenuReq       :: Ptr RiverWindowV1 -> Int -> Int -> IO ()
+    , onWinMaximizeReq       :: Ptr RiverWindowV1 -> IO ()
+    , onWinUnmaximizeReq     :: Ptr RiverWindowV1 -> IO ()
+    , onWinFullscreenReq     :: Ptr RiverWindowV1 -> Maybe (Ptr RiverOutputV1) -> IO ()
     , onWinExitFullscreenReq :: Ptr RiverWindowV1 -> IO ()
-    , onWinMinimizeReq :: Ptr RiverWindowV1 -> IO ()
-    , onWinUnreliablePid :: Ptr RiverWindowV1 -> Int -> IO ()
-    , onWinPresentationHint :: Ptr RiverWindowV1 -> Word32 -> IO ()
-    , onWinIdentifier :: Ptr RiverWindowV1 -> String -> IO ()
+    , onWinMinimizeReq       :: Ptr RiverWindowV1 -> IO ()
+    , onWinUnreliablePid     :: Ptr RiverWindowV1 -> Int -> IO ()
+    , onWinPresentationHint  :: Ptr RiverWindowV1 -> Word32 -> IO ()
+    , onWinIdentifier        :: Ptr RiverWindowV1 -> String -> IO ()
     }
 
 riverWindowV1AddListener :: Ptr RiverWindowV1 -> WindowListener -> IO (IO ())
@@ -763,9 +746,9 @@ foreign import ccall "wrapper"
         RawLayerShellSeatFocusNone -> IO (FunPtr RawLayerShellSeatFocusNone)
 
 data LayerShellSeatListener = LayerShellSeatListener
-    { onLayerShellSeatFocusExclusive :: Ptr RiverLayerShellSeatV1 -> IO ()
+    { onLayerShellSeatFocusExclusive    :: Ptr RiverLayerShellSeatV1 -> IO ()
     , onLayerShellSeatFocusNonExclusive :: Ptr RiverLayerShellSeatV1 -> IO ()
-    , onLayerShellSeatFocusNone :: Ptr RiverLayerShellSeatV1 -> IO ()
+    , onLayerShellSeatFocusNone         :: Ptr RiverLayerShellSeatV1 -> IO ()
     }
 
 riverLayerShellSeatV1AddListener ::
@@ -847,9 +830,9 @@ foreign import ccall "wrapper" mkRawOutPosition :: RawOutPosition -> IO (FunPtr 
 foreign import ccall "wrapper" mkRawOutDimensions :: RawOutDimensions -> IO (FunPtr RawOutDimensions)
 
 data OutputListener = OutputListener
-    { onOutRemoved :: Ptr RiverOutputV1 -> IO ()
-    , onOutWlOutput :: Ptr RiverOutputV1 -> Word32 -> IO ()
-    , onOutPosition :: Ptr RiverOutputV1 -> Int -> Int -> IO ()
+    { onOutRemoved    :: Ptr RiverOutputV1 -> IO ()
+    , onOutWlOutput   :: Ptr RiverOutputV1 -> Word32 -> IO ()
+    , onOutPosition   :: Ptr RiverOutputV1 -> Int -> Int -> IO ()
     , onOutDimensions :: Ptr RiverOutputV1 -> Int -> Int -> IO ()
     }
 
@@ -950,15 +933,15 @@ foreign import ccall "wrapper" mkRawSeatOpRelease :: RawSeatOpRelease -> IO (Fun
 foreign import ccall "wrapper" mkRawSeatPointerPosition :: RawSeatPointerPosition -> IO (FunPtr RawSeatPointerPosition)
 
 data SeatListener = SeatListener
-    { onSeatRemoved :: Ptr RiverSeatV1 -> IO ()
-    , onSeatWlSeat :: Ptr RiverSeatV1 -> Word32 -> IO ()
-    , onSeatPointerEnter :: Ptr RiverSeatV1 -> Ptr RiverWindowV1 -> IO ()
-    , onSeatPointerLeave :: Ptr RiverSeatV1 -> IO ()
+    { onSeatRemoved           :: Ptr RiverSeatV1 -> IO ()
+    , onSeatWlSeat            :: Ptr RiverSeatV1 -> Word32 -> IO ()
+    , onSeatPointerEnter      :: Ptr RiverSeatV1 -> Ptr RiverWindowV1 -> IO ()
+    , onSeatPointerLeave      :: Ptr RiverSeatV1 -> IO ()
     , onSeatWindowInteraction :: Ptr RiverSeatV1 -> Ptr RiverWindowV1 -> IO ()
-    , onSeatShellInteraction :: Ptr RiverSeatV1 -> Ptr RiverShellSurfaceV1 -> IO ()
-    , onSeatOpDelta :: Ptr RiverSeatV1 -> Int -> Int -> IO ()
-    , onSeatOpRelease :: Ptr RiverSeatV1 -> IO ()
-    , onSeatPointerPosition :: Ptr RiverSeatV1 -> Int -> Int -> IO ()
+    , onSeatShellInteraction  :: Ptr RiverSeatV1 -> Ptr RiverShellSurfaceV1 -> IO ()
+    , onSeatOpDelta           :: Ptr RiverSeatV1 -> Int -> Int -> IO ()
+    , onSeatOpRelease         :: Ptr RiverSeatV1 -> IO ()
+    , onSeatPointerPosition   :: Ptr RiverSeatV1 -> Int -> Int -> IO ()
     }
 
 riverSeatV1AddListener :: Ptr RiverSeatV1 -> SeatListener -> IO (IO ())
@@ -1027,7 +1010,7 @@ foreign import ccall "wrapper" mkRawPbPressed :: RawPbPressed -> IO (FunPtr RawP
 foreign import ccall "wrapper" mkRawPbReleased :: RawPbReleased -> IO (FunPtr RawPbReleased)
 
 data PointerBindingListener = PointerBindingListener
-    { onPbPressed :: Ptr RiverPointerBindingV1 -> IO ()
+    { onPbPressed  :: Ptr RiverPointerBindingV1 -> IO ()
     , onPbReleased :: Ptr RiverPointerBindingV1 -> IO ()
     }
 
@@ -1112,8 +1095,8 @@ foreign import ccall "wrapper" mkRawXkbReleased :: RawXkbReleased -> IO (FunPtr 
 foreign import ccall "wrapper" mkRawXkbStopRepeat :: RawXkbStopRepeat -> IO (FunPtr RawXkbStopRepeat)
 
 data XkbBindingListener = XkbBindingListener
-    { onXkbPressed :: Ptr RiverXkbBindingV1 -> IO ()
-    , onXkbReleased :: Ptr RiverXkbBindingV1 -> IO ()
+    { onXkbPressed    :: Ptr RiverXkbBindingV1 -> IO ()
+    , onXkbReleased   :: Ptr RiverXkbBindingV1 -> IO ()
     , onXkbStopRepeat :: Ptr RiverXkbBindingV1 -> IO ()
     }
 
@@ -1202,7 +1185,7 @@ foreign import ccall "wrapper" mkRawImFinished :: RawImFinished -> IO (FunPtr Ra
 foreign import ccall "wrapper" mkRawImInputDevice :: RawImInputDevice -> IO (FunPtr RawImInputDevice)
 
 data InputManagerListener = InputManagerListener
-    { onImFinished :: Ptr RiverInputManagerV1 -> IO ()
+    { onImFinished    :: Ptr RiverInputManagerV1 -> IO ()
     , onImInputDevice :: Ptr RiverInputManagerV1 -> Ptr RiverInputDeviceV1 -> IO ()
     }
 
@@ -1271,8 +1254,8 @@ foreign import ccall "wrapper" mkRawDevName :: RawDevName -> IO (FunPtr RawDevNa
 
 data InputDeviceListener = InputDeviceListener
     { onDevRemoved :: Ptr RiverInputDeviceV1 -> IO ()
-    , onDevType :: Ptr RiverInputDeviceV1 -> Word32 -> IO ()
-    , onDevName :: Ptr RiverInputDeviceV1 -> String -> IO ()
+    , onDevType    :: Ptr RiverInputDeviceV1 -> Word32 -> IO ()
+    , onDevName    :: Ptr RiverInputDeviceV1 -> String -> IO ()
     }
 
 riverInputDeviceV1AddListener ::

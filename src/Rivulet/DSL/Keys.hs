@@ -1,20 +1,20 @@
 module Rivulet.DSL.Keys where
 
 import Rivulet.DSL.Combinators (Combinable (..))
-import Rivulet.Monad (Action)
+import Rivulet.Monad           (Action)
 
 import Data.Bits
-import Data.Foldable (foldl', toList)
+import Data.Foldable           (foldl', toList)
 import Data.Word
 
 modifierMask :: Modifier -> Word32
-modifierMask Shift = 0x01
+modifierMask Shift   = 0x01
 modifierMask Control = 0x04
-modifierMask Mod1 = 0x08
-modifierMask Mod2 = 0x10
-modifierMask Mod3 = 0x20
-modifierMask Mod4 = 0x40
-modifierMask Mod5 = 0x80
+modifierMask Mod1    = 0x08
+modifierMask Mod2    = 0x10
+modifierMask Mod3    = 0x20
+modifierMask Mod4    = 0x40
+modifierMask Mod5    = 0x80
 
 modifiersMask :: [Modifier] -> Word32
 modifiersMask = foldl' (\acc m -> acc .|. modifierMask m) 0

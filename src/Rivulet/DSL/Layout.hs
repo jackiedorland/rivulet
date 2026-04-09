@@ -14,7 +14,7 @@ data Grid
 instance Layout Full where
     propose _ monitor (Margins gap bw) windows =
         case windows of
-            [] -> []
+            []      -> []
             (w : _) -> [fullRect w]
       where
         screen = workArea monitor
@@ -29,7 +29,7 @@ instance Layout Full where
             )
     arrange _ monitor (Margins gap bw) windows =
         case windows of
-            [] -> []
+            []                  -> []
             ((wId, (w, h)) : _) -> [placeAt wId w h]
       where
         screen = workArea monitor
@@ -38,8 +38,8 @@ instance Layout Full where
 instance Layout Tall where
     propose _ monitor (Margins gap bw) windows =
         case windows of
-            [] -> []
-            [w] -> [fullRect w]
+            []               -> []
+            [w]              -> [fullRect w]
             (master : stack) -> masterRect master : stackRects stack
       where
         screen = workArea monitor
@@ -60,8 +60,8 @@ instance Layout Tall where
              in zipWith (curry place) [0 ..] ws
     arrange _ monitor (Margins gap bw) windows =
         case windows of
-            [] -> []
-            [(wId, (w, h))] -> [placeAt availX availY wId w h]
+            []               -> []
+            [(wId, (w, h))]  -> [placeAt availX availY wId w h]
             (master : stack) -> placeMaster master : placeStack stack
       where
         screen = workArea monitor

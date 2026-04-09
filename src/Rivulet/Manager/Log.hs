@@ -1,27 +1,27 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Rivulet.Manager.Log (
-    Logger,
-    withLogger,
-    logInfo,
-    logError,
-    logEvent,
-    logFail,
-    separator,
-    banner,
-) where
+module Rivulet.Manager.Log
+    ( Logger
+    , banner
+    , logError
+    , logEvent
+    , logFail
+    , logInfo
+    , separator
+    , withLogger
+    ) where
 
-import Colog (LogAction (..), logTextHandle, (<&))
-import Colog.Concurrent (defCapacity, withBackgroundLogger)
-import Control.Exception (throwIO)
-import Control.Monad (when)
-import Data.Char (toLower)
-import Data.Text (Text)
-import Data.Text qualified as T
-import Data.Version (showVersion)
-import Paths_rivulet (version)
+import Colog              (LogAction (..), logTextHandle, (<&))
+import Colog.Concurrent   (defCapacity, withBackgroundLogger)
+import Control.Exception  (throwIO)
+import Control.Monad      (when)
+import Data.Char          (toLower)
+import Data.Text          (Text)
+import Data.Text          qualified as T
+import Data.Version       (showVersion)
+import Paths_rivulet      (version)
 import System.Environment (lookupEnv)
-import System.IO (hIsTerminalDevice, hPutStr, stderr)
+import System.IO          (hIsTerminalDevice, hPutStr, stderr)
 
 type Logger = (Bool, LogAction IO Text)
 

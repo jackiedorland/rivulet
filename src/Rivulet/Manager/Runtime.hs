@@ -1,57 +1,49 @@
 module Rivulet.Manager.Runtime where
 
-import Rivulet.DSL (Config (..), ConfigM)
-import Rivulet.DSL.Layout (Tall (..))
+import Rivulet.DSL               (Config (..), ConfigM)
+import Rivulet.DSL.Layout        (Tall (..))
 import Rivulet.FFI.Client
 import Rivulet.FFI.Protocol
-import Rivulet.Manager qualified as Manager
+import Rivulet.Manager           qualified as Manager
 import Rivulet.Manager.Callbacks qualified as Callbacks
-import Rivulet.Manager.Log (
-    Logger,
-    banner,
-    logError,
-    logEvent,
-    logFail,
-    logInfo,
-    separator,
-    withLogger,
- )
+import Rivulet.Manager.Log       (Logger, banner, logError, logEvent, logFail, logInfo, separator,
+                                  withLogger)
 import Rivulet.Monad
 import Rivulet.Types
 
 import Control.Concurrent.STM
-import Control.Exception (finally)
-import Control.Monad.Writer (execWriterT)
-import Data.Char (toLower)
-import Data.Functor.Identity (runIdentity)
+import Control.Exception         (finally)
+import Control.Monad.Writer      (execWriterT)
+import Data.Char                 (toLower)
+import Data.Functor.Identity     (runIdentity)
 import Data.IORef
-import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe)
-import Data.Set qualified as Set
+import Data.Map.Strict           qualified as Map
+import Data.Maybe                (fromMaybe)
+import Data.Set                  qualified as Set
 import Data.Word
 import Foreign
-import System.Environment (lookupEnv)
-import System.Process (spawnProcess)
+import System.Environment        (lookupEnv)
+import System.Process            (spawnProcess)
 
 readBoolEnv :: String -> Maybe Bool
 readBoolEnv raw =
     case map toLower raw of
-        "1" -> Just True
-        "true" -> Just True
-        "yes" -> Just True
-        "on" -> Just True
-        "0" -> Just False
+        "1"     -> Just True
+        "true"  -> Just True
+        "yes"   -> Just True
+        "on"    -> Just True
+        "0"     -> Just False
         "false" -> Just False
-        "no" -> Just False
-        "off" -> Just False
-        _ -> Nothing
+        "no"    -> Just False
+        "off"   -> Just False
+        _       -> Nothing
 
 -- helpers
 lookup3 :: String -> [(Word32, String, Word32)] -> Maybe (Word32, Word32)
 lookup3 iface xs =
     case filter (\(_, i, _) -> i == iface) xs of
         (name, _, ver) : _ -> Just (name, ver)
-        [] -> Nothing
+        []                 -> Nothing
 
 ptrId :: Ptr a -> Word32
 ptrId = fromIntegral . ptrToWordPtr
@@ -60,7 +52,7 @@ activeLayout :: Workspace -> SomeLayout
 activeLayout ws =
     case layouts ws of
         (l : _) -> l
-        [] -> SomeLayout Tall
+        []      -> SomeLayout Tall
 
 marginsFromConfig :: Config -> Margins
 marginsFromConfig config =
@@ -149,7 +141,12 @@ initialState windowManager xkbBindings inputManager layerShell =
         , rawWM = windowManager
         , rawXkb = xkbBindings
         , rawInput = inputManager
-        , rawLayerShell = layerShell
+        , layerShell =
+            LayerShellState
+                { layerShellManager = layerShell
+                , layerShellOutputs = Map.empty
+                , layerShellSeats = Map.empty
+                }
         , monitors = Map.empty
         , windows = Map.empty
         , seats = Map.empty
@@ -157,13 +154,7 @@ initialState windowManager xkbBindings inputManager layerShell =
         , borders = (defaultBorder, defaultBorder)
         , dirtyMonitors = Set.empty
         , lastVisibleWindows = Map.empty
-        , layerShellOutputs = Map.empty
-        , layerShellSeats = Map.empty
-        , layerShellOutputCleanup = Map.empty
-        , layerShellSeatCleanup = Map.empty
-        , seatCleanup = Map.empty
-        , windowCleanup = Map.empty
-        , monitorCleanup = Map.empty
+        , cleanupRegistry = Map.empty
         }
 
 -- initialize
@@ -173,7 +164,7 @@ initialize runtime config = do
         wmState = rtState runtime
     -- apply cfgBorders & cfgGaps from the config -> the TVar
     case cfgBorders config of
-        Just b -> updateState wmState $ \s -> s{borders = b}
+        Just b  -> updateState wmState $ \s -> s{borders = b}
         Nothing -> pure ()
     logInfo logger $
         "config: gaps="

@@ -1,23 +1,23 @@
 module Rivulet.Manager.Callbacks where
 
 import Control.Concurrent.STM
-import Control.Monad (when)
+import Control.Monad          (when)
 import Control.Monad.Reader
-import Data.List (find)
-import Data.Map.Strict qualified as Map
+import Data.Foldable
+import Data.Map.Strict        qualified as Map
 import Data.Maybe
-import Data.Set qualified as Set
+import Data.Set               qualified as Set
 import Data.Word
 import Foreign
-import Rivulet.DSL (Config (..))
+import Rivulet.DSL            (Config (..))
 import Rivulet.DSL.Keys
 import Rivulet.DSL.Layout
 import Rivulet.FFI.Protocol
-import Rivulet.Manager.Log (logEvent, logFail, logInfo)
+import Rivulet.Manager.Log    (logEvent, logFail, logInfo)
 import Rivulet.Monad
 import Rivulet.Types
 import System.Exit
-import UnliftIO (forConcurrently)
+import UnliftIO               (forConcurrently)
 
 -- helpers
 ptrId :: Ptr a -> WordPtr
@@ -31,11 +31,17 @@ defaultWorkspaceNames = map show ([1 .. 9] :: [Int])
 
 findLayerShellOutputMonitorId :: WMState -> Ptr RiverLayerShellOutputV1 -> Maybe MonitorId
 findLayerShellOutputMonitorId state lsOutPtr =
-    fst <$> find ((== lsOutPtr) . snd) (Map.toList (layerShellOutputs state))
+    fst
+        <$> find
+            ((== lsOutPtr) . layerShellOutputPtr . snd)
+            (Map.toList (layerShellOutputs (layerShell state)))
 
 findLayerShellSeatId :: WMState -> Ptr RiverLayerShellSeatV1 -> Maybe SeatId
 findLayerShellSeatId state lsSeatPtr =
-    fst <$> find ((== lsSeatPtr) . snd) (Map.toList (layerShellSeats state))
+    fst
+        <$> find
+            ((== lsSeatPtr) . layerShellSeatPtr . snd)
+            (Map.toList (layerShellSeats (layerShell state)))
 
 handleLayerShellOutNonExclusiveArea ::
     Runtime -> Ptr RiverLayerShellOutputV1 -> Int -> Int -> Int -> Int -> IO ()
@@ -66,20 +72,76 @@ logLayerShellSeatFocusEvent runtime eventName lsSeatPtr = do
         wmState = rtState runtime
     state <- readTVarIO wmState
     case findLayerShellSeatId state lsSeatPtr of
-        Nothing -> logEvent logger "layer-shell" $ eventName <> " unknown-seat"
+        Nothing     -> logEvent logger "layer-shell" $ eventName <> " unknown-seat"
         Just seatId -> logEvent logger "layer-shell" $ eventName <> " " <> show seatId
 
 handleLayerShellSeatFocusExclusive :: Runtime -> Ptr RiverLayerShellSeatV1 -> IO ()
-handleLayerShellSeatFocusExclusive runtime =
-    logLayerShellSeatFocusEvent runtime "focus_exclusive"
+handleLayerShellSeatFocusExclusive runtime lsSeatPtr = do
+    logLayerShellSeatFocusEvent runtime "focus_exclusive" lsSeatPtr
+    let wmState = rtState runtime
+    state <- readTVarIO wmState
+    case findLayerShellSeatId state lsSeatPtr of
+        Nothing -> pure ()
+        Just seatId ->
+            updateState wmState $ \s ->
+                s
+                    { layerShell =
+                        let ls = layerShell s
+                         in ls
+                                { layerShellSeats =
+                                    Map.adjust
+                                        (\lsSeat -> lsSeat{layerShellSeatExclusiveFocus = True})
+                                        seatId
+                                        (layerShellSeats ls)
+                                }
+                    }
 
 handleLayerShellSeatFocusNonExclusive :: Runtime -> Ptr RiverLayerShellSeatV1 -> IO ()
-handleLayerShellSeatFocusNonExclusive runtime =
-    logLayerShellSeatFocusEvent runtime "focus_non_exclusive"
+handleLayerShellSeatFocusNonExclusive runtime lsSeatPtr = do
+    logLayerShellSeatFocusEvent runtime "focus_non_exclusive" lsSeatPtr
+    let wmState = rtState runtime
+    state <- readTVarIO wmState
+    case findLayerShellSeatId state lsSeatPtr of
+        Nothing -> pure ()
+        Just seatId ->
+            updateState wmState $ \s ->
+                s
+                    { layerShell =
+                        let ls = layerShell s
+                         in ls
+                                { layerShellSeats =
+                                    Map.adjust
+                                        (\lsSeat -> lsSeat{layerShellSeatExclusiveFocus = False})
+                                        seatId
+                                        (layerShellSeats ls)
+                                }
+                    }
 
 handleLayerShellSeatFocusNone :: Runtime -> Ptr RiverLayerShellSeatV1 -> IO ()
-handleLayerShellSeatFocusNone runtime =
-    logLayerShellSeatFocusEvent runtime "focus_none"
+handleLayerShellSeatFocusNone runtime lsSeatPtr = do
+    logLayerShellSeatFocusEvent runtime "focus_none" lsSeatPtr
+    let wmState = rtState runtime
+    state <- readTVarIO wmState
+    case findLayerShellSeatId state lsSeatPtr of
+        Nothing -> pure ()
+        Just seatId ->
+            updateState wmState $ \s ->
+                s
+                    { layerShell =
+                        let ls = layerShell s
+                         in ls
+                                { layerShellSeats =
+                                    Map.adjust
+                                        (\lsSeat -> lsSeat{layerShellSeatExclusiveFocus = False})
+                                        seatId
+                                        (layerShellSeats ls)
+                                }
+                    , seats =
+                        Map.adjust
+                            (\seat -> seat{lastSentFocus = Nothing})
+                            seatId
+                            (seats s)
+                    }
 
 focusedWorkspaceId :: WMState -> Maybe WorkspaceId
 focusedWorkspaceId s =
@@ -94,7 +156,7 @@ workspaceNamesForSlot :: Config -> Int -> [String]
 workspaceNamesForSlot config slot =
     case drop slot (cfgMonitors config) of
         (_, names) : _ | not (null names) -> names
-        _ -> defaultWorkspaceNames
+        _                                 -> defaultWorkspaceNames
 
 uniqueWorkspaceNames :: Set.Set String -> Int -> [String] -> ([String], [(String, String)])
 uniqueWorkspaceNames existing slot = go existing [] []
@@ -155,7 +217,7 @@ onWmWindow runtime _ listener _ winPtr = do
                     Nothing ->
                         case Map.lookupMin (monitors s) of
                             Just (_, mon) -> activeSpace mon
-                            Nothing -> WorkspaceId (MonitorId 0, 0)
+                            Nothing       -> WorkspaceId (MonitorId 0, 0)
             WorkspaceId (monId, _) = defaultWsId
             win =
                 Window
@@ -180,8 +242,7 @@ onWmWindow runtime _ listener _ winPtr = do
                         (workspaces s)
                 }
     cleanup <- riverWindowV1AddListener winPtr listener
-    updateState wmState $ \s ->
-        s{windowCleanup = Map.insert winId cleanup (windowCleanup s)}
+    registerCleanup wmState (CleanupWindow winId) cleanup
 
 onWmOutput ::
     Runtime ->
@@ -194,9 +255,11 @@ onWmOutput runtime config listener _ outPtr = do
     let logger = rtLogger runtime
         wmState = rtState runtime
     let monId = MonitorId (ptrId outPtr)
+        monitorCleanupRef = CleanupMonitor monId
+        layerOutputCleanupRef = CleanupLayerShellOutput monId
     state <- readTVarIO wmState
     mLayerShellOutput <- do
-        lsOutPtr <- riverLayerShellV1GetOutput (rawLayerShell state) outPtr
+        lsOutPtr <- riverLayerShellV1GetOutput (layerShellManager (layerShell state)) outPtr
         if lsOutPtr == nullPtr
             then do
                 logInfo logger $ "output " <> show monId <> " did not create river_layer_shell_output_v1"
@@ -208,7 +271,13 @@ onWmOutput runtime config listener _ outPtr = do
                             { onLayerShellOutNonExclusiveArea =
                                 handleLayerShellOutNonExclusiveArea runtime
                             }
-                pure $ Just (lsOutPtr, lsCleanup)
+                registerCleanup wmState layerOutputCleanupRef lsCleanup
+                pure $
+                    Just
+                        LayerShellOutputState
+                            { layerShellOutputPtr = lsOutPtr
+                            , layerShellOutputCleanupRef = layerOutputCleanupRef
+                            }
     let slot = Map.size (monitors state)
         requestedNames = workspaceNamesForSlot config slot
         maxWorkspaces = fromIntegral (maxBound :: Word8) + 1
@@ -228,7 +297,7 @@ onWmOutput runtime config listener _ outPtr = do
         wsId =
             case wsEntries of
                 ((firstWsId, _) : _) -> firstWsId
-                [] -> WorkspaceId (monId, 0)
+                []                   -> WorkspaceId (monId, 0)
         mon =
             Monitor
                 { rawOutput = outPtr
@@ -270,16 +339,17 @@ onWmOutput runtime config listener _ outPtr = do
                     }
          in case mLayerShellOutput of
                 Nothing -> updatedState
-                Just (lsOutPtr, lsCleanup) ->
+                Just lsOutputState ->
                     updatedState
-                        { layerShellOutputs =
-                            Map.insert monId lsOutPtr (layerShellOutputs updatedState)
-                        , layerShellOutputCleanup =
-                            Map.insert monId lsCleanup (layerShellOutputCleanup updatedState)
+                        { layerShell =
+                            let ls = layerShell updatedState
+                             in ls
+                                    { layerShellOutputs =
+                                        Map.insert monId lsOutputState (layerShellOutputs ls)
+                                    }
                         }
     cleanup <- riverOutputV1AddListener outPtr listener
-    updateState wmState $ \s ->
-        s{monitorCleanup = Map.insert monId cleanup (monitorCleanup s)}
+    registerCleanup wmState monitorCleanupRef cleanup
 
 onWmSeat ::
     Runtime ->
@@ -291,10 +361,12 @@ onWmSeat ::
 onWmSeat runtime config listener _ seatPtr = do
     let logger = rtLogger runtime
         wmState = rtState runtime
-    state <- readTVarIO wmState -- bind state so we can use it
     let sid = SeatId (ptrId seatPtr)
+        seatCleanupRef = CleanupSeat sid
+        layerSeatCleanupRef = CleanupLayerShellSeat sid
+    state <- readTVarIO wmState -- bind state so we can use it
     mLayerShellSeat <- do
-        lsSeatPtr <- riverLayerShellV1GetSeat (rawLayerShell state) seatPtr
+        lsSeatPtr <- riverLayerShellV1GetSeat (layerShellManager (layerShell state)) seatPtr
         if lsSeatPtr == nullPtr
             then do
                 logInfo logger $ "seat " <> show sid <> " did not create river_layer_shell_seat_v1"
@@ -310,7 +382,14 @@ onWmSeat runtime config listener _ seatPtr = do
                             , onLayerShellSeatFocusNone =
                                 handleLayerShellSeatFocusNone runtime
                             }
-                pure $ Just (lsSeatPtr, lsCleanup)
+                registerCleanup wmState layerSeatCleanupRef lsCleanup
+                pure $
+                    Just
+                        LayerShellSeatState
+                            { layerShellSeatPtr = lsSeatPtr
+                            , layerShellSeatCleanupRef = layerSeatCleanupRef
+                            , layerShellSeatExclusiveFocus = False
+                            }
     xkbSeatPtr <- riverXkbBindingsV1GetSeat (rawXkb state) seatPtr -- bind the xkbSeatPtr
     -- need best way to most efficiently map over the keybindings in Cfg riverXkbBindingsV1GetXkbBinding? this should work i think
     newBindings <-
@@ -348,32 +427,33 @@ onWmSeat runtime config listener _ seatPtr = do
         let updatedState = s{seats = Map.insert sid seat (seats s)}
          in case mLayerShellSeat of
                 Nothing -> updatedState
-                Just (lsSeatPtr, lsCleanup) ->
+                Just lsSeatState ->
                     updatedState
-                        { layerShellSeats =
-                            Map.insert sid lsSeatPtr (layerShellSeats updatedState)
-                        , layerShellSeatCleanup =
-                            Map.insert sid lsCleanup (layerShellSeatCleanup updatedState)
+                        { layerShell =
+                            let ls = layerShell updatedState
+                             in ls
+                                    { layerShellSeats =
+                                        Map.insert sid lsSeatState (layerShellSeats ls)
+                                    }
                         }
     cleaner1 <- riverSeatV1AddListener seatPtr listener
-    updateState wmState $ \s ->
-        s{seatCleanup = Map.insert sid cleaner1 (seatCleanup s)}
+    registerCleanup wmState seatCleanupRef cleaner1
 
 -- Output listener callbacks
 onOutRemoved :: TVar WMState -> Ptr RiverOutputV1 -> IO ()
 onOutRemoved wmState outPtr = do
     let monId = MonitorId (ptrId outPtr)
+    runCleanup wmState (CleanupMonitor monId)
+    runCleanup wmState (CleanupLayerShellOutput monId)
     state <- readTVarIO wmState
-    sequence_ $ Map.lookup monId (monitorCleanup state)
-    sequence_ $ Map.lookup monId (layerShellOutputCleanup state)
-    case Map.lookup monId (layerShellOutputs state) of
-        Nothing -> pure ()
-        Just lsOutPtr -> riverLayerShellOutputV1Destroy lsOutPtr
+    for_
+        (Map.lookup monId (layerShellOutputs (layerShell state)))
+        (riverLayerShellOutputV1Destroy . layerShellOutputPtr)
     updateState wmState $ \s ->
         s
-            { monitorCleanup = Map.delete monId (monitorCleanup s)
-            , layerShellOutputs = Map.delete monId (layerShellOutputs s)
-            , layerShellOutputCleanup = Map.delete monId (layerShellOutputCleanup s)
+            { layerShell =
+                let ls = layerShell s
+                 in ls{layerShellOutputs = Map.delete monId (layerShellOutputs ls)}
             }
     riverOutputV1Destroy outPtr
     updateState wmState $ \s ->
@@ -424,17 +504,17 @@ onOutDimensions runtime outPtr w h = do
 onSeatRemoved :: TVar WMState -> Ptr RiverSeatV1 -> IO ()
 onSeatRemoved wmState seatPtr = do
     let seatId = SeatId (ptrId seatPtr)
+    runCleanup wmState (CleanupSeat seatId)
+    runCleanup wmState (CleanupLayerShellSeat seatId)
     state <- readTVarIO wmState
-    sequence_ $ Map.lookup seatId (seatCleanup state)
-    sequence_ $ Map.lookup seatId (layerShellSeatCleanup state)
-    case Map.lookup seatId (layerShellSeats state) of
-        Nothing -> pure ()
-        Just lsSeatPtr -> riverLayerShellSeatV1Destroy lsSeatPtr
+    for_
+        (Map.lookup seatId (layerShellSeats (layerShell state)))
+        (riverLayerShellSeatV1Destroy . layerShellSeatPtr)
     updateState wmState $ \s ->
         s
-            { seatCleanup = Map.delete seatId (seatCleanup s)
-            , layerShellSeats = Map.delete seatId (layerShellSeats s)
-            , layerShellSeatCleanup = Map.delete seatId (layerShellSeatCleanup s)
+            { layerShell =
+                let ls = layerShell s
+                 in ls{layerShellSeats = Map.delete seatId (layerShellSeats ls)}
             }
     riverSeatV1Destroy seatPtr
     updateState wmState $ \s -> s{seats = Map.delete seatId (seats s)}
@@ -470,18 +550,23 @@ onSeatWindowInteraction runtime wmPtr seatPtr winPtr = do
             case Map.lookup seatId (seats state) of
                 Nothing -> pure False
                 Just seat ->
-                    if keyboardFocus seat == Just winId
-                        then pure False
-                        else do
-                            modifyTVar wmState $ \s ->
-                                s
-                                    { seats =
-                                        Map.adjust
-                                            (\se -> se{keyboardFocus = Just winId})
-                                            seatId
-                                            (seats s)
-                                    }
-                            pure True
+                    let exclusiveLayerFocus =
+                            maybe
+                                False
+                                layerShellSeatExclusiveFocus
+                                (Map.lookup seatId (layerShellSeats (layerShell state)))
+                     in if exclusiveLayerFocus || (keyboardFocus seat == Just winId)
+                            then pure False
+                            else do
+                                modifyTVar wmState $ \s ->
+                                    s
+                                        { seats =
+                                            Map.adjust
+                                                (\se -> se{keyboardFocus = Just winId})
+                                                seatId
+                                                (seats s)
+                                        }
+                                pure True
     when changed $ riverWindowManagerV1ManageDirty wmPtr
 
 onSeatShellInteraction ::
@@ -504,10 +589,7 @@ onWinClosed runtime winPtr = do
         wmState = rtState runtime
     let winId = WindowId (ptrId winPtr)
     logEvent logger "window" $ show winId <> " -> closed"
-    state <- readTVarIO wmState
-    sequence_ $ Map.lookup winId (windowCleanup state)
-    updateState wmState $ \s ->
-        s{windowCleanup = Map.delete winId (windowCleanup s)}
+    runCleanup wmState (CleanupWindow winId)
     riverWindowV1Destroy winPtr
     updateState wmState $ \s ->
         let win = Map.lookup winId (windows s)
@@ -537,7 +619,7 @@ onWinClosed runtime winPtr = do
                         (workspaces s)
                 , dirtyMonitors =
                     case monId of
-                        Nothing -> dirtyMonitors s
+                        Nothing  -> dirtyMonitors s
                         Just mId -> Set.insert mId (dirtyMonitors s)
                 , lastVisibleWindows =
                     Map.map (Set.delete winId) (lastVisibleWindows s)

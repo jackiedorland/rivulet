@@ -3,22 +3,22 @@
 
 module Rivulet.Manager where
 
-import Rivulet.DSL (Config (..))
-import Rivulet.DSL.Layout (Tall (..))
+import Rivulet.DSL            (Config (..))
+import Rivulet.DSL.Layout     (Tall (..))
 import Rivulet.FFI.Protocol
 import Rivulet.Types
 
 import Control.Concurrent.STM (readTVarIO)
-import Control.Exception (finally)
-import Control.Monad (unless, when)
-import Data.List qualified as List
-import Data.Map qualified as Map
+import Control.Exception      (finally)
+import Control.Monad          (unless, when)
+import Data.List              qualified as List
+import Data.Map               qualified as Map
 import Data.Maybe
-import Data.Set qualified as Set
+import Data.Set               qualified as Set
 import Foreign
-import Rivulet.Manager.Log (Logger, logEvent)
+import Rivulet.Manager.Log    (Logger, logEvent)
 import Rivulet.Monad
-import UnliftIO.Async (forConcurrently, forConcurrently_)
+import UnliftIO.Async         (forConcurrently, forConcurrently_)
 
 marginsFromConfig :: Config -> Margins
 marginsFromConfig config =
@@ -97,6 +97,11 @@ onWmManageStart runtime config wmPtr = do
     -- ManageFinish is guaranteed to fire even if something throws
     finally
         ( do
+            case Map.lookupMin (layerShellOutputs (layerShell state)) of
+                Nothing -> pure ()
+                Just (_, layerOutState) ->
+                    riverLayerShellOutputV1SetDefault (layerShellOutputPtr layerOutState)
+
             forConcurrently_ seatList $ \(_, seatVal) ->
                 forConcurrently_ (pendingBindings seatVal) $ \(binding, _) ->
                     riverXkbBindingV1Enable binding
@@ -106,17 +111,25 @@ onWmManageStart runtime config wmPtr = do
                 forConcurrently seatList $ \(seatId, seatVal) -> do
                     let current = keyboardFocus seatVal
                         lastSent = lastSentFocus seatVal
-                    when (current /= lastSent) do
-                        logEvent logger "focus" $ "seat " <> show seatId <> " -> " <> show current
-                        case current of
-                            Nothing ->
-                                riverSeatV1ClearFocus (rawSeat seatVal)
-                            Just winId ->
-                                case Map.lookup winId (windows state) of
-                                    Nothing -> pure ()
-                                    Just win ->
-                                        riverSeatV1FocusWindow (rawSeat seatVal) (rawWindow win)
-                    pure (seatId, current)
+                        exclusiveLayerFocus =
+                            maybe
+                                False
+                                layerShellSeatExclusiveFocus
+                                (Map.lookup seatId (layerShellSeats (layerShell state)))
+                    if exclusiveLayerFocus
+                        then pure (seatId, lastSent)
+                        else do
+                            when (current /= lastSent) do
+                                logEvent logger "focus" $ "seat " <> show seatId <> " -> " <> show current
+                                case current of
+                                    Nothing ->
+                                        riverSeatV1ClearFocus (rawSeat seatVal)
+                                    Just winId ->
+                                        case Map.lookup winId (windows state) of
+                                            Nothing -> pure ()
+                                            Just win ->
+                                                riverSeatV1FocusWindow (rawSeat seatVal) (rawWindow win)
+                            pure (seatId, current)
 
             -- for any window requesting fullscreen, resolve which monitor to use:
             -- if a specific monitor was requested use that, otherwise use the window's current monitor
@@ -129,7 +142,7 @@ onWmManageStart runtime config wmPtr = do
                                         WorkspaceId (mId, _) -> mId
                                 Just mId -> mId
                     case Map.lookup monId (monitors state) of
-                        Nothing -> pure ()
+                        Nothing  -> pure ()
                         Just mon -> riverWindowV1Fullscreen (rawWindow win) (rawOutput mon)
 
             proposals <-
@@ -147,7 +160,7 @@ onWmManageStart runtime config wmPtr = do
                                     , pendingBindings = []
                                     }
                             ) seatId acc
-                    applyProposal acc (winId, dims) = Map.adjust 
+                    applyProposal acc (winId, dims) = Map.adjust
                         (\win -> win{winProposed = Just (width dims, height dims)}) winId acc
                  in s
                         { dirtyMonitors = Set.empty
@@ -203,11 +216,11 @@ onWmRenderStart runtime config wmPtr = do
                 toHide =
                     case Map.lookup monId (lastVisibleWindows state) of
                         Nothing -> Set.difference monitorWindows currentVisible
-                        Just _ -> Set.difference previousVisible currentVisible
+                        Just _  -> Set.difference previousVisible currentVisible
                 toShow = Set.difference currentVisible previousVisible
              in case (Set.null toHide, Set.null toShow) of
                     (True, True) -> Nothing
-                    _ -> Just (monId, toHide, toShow)
+                    _            -> Just (monId, toHide, toShow)
         visibilityTransitions =
             mapMaybe transitionFor (Map.keys (monitors state))
     -- RenderFinish is guaranteed to fire even if something throws
@@ -236,7 +249,7 @@ onWmRenderStart runtime config wmPtr = do
                         <> show (Set.size toShow)
                 let applyVisibility op winId =
                         case Map.lookup winId windowMap of
-                            Nothing -> pure ()
+                            Nothing  -> pure ()
                             Just win -> op (rawWindow win)
                 forConcurrently_ (Set.toList toHide) (applyVisibility riverWindowV1Hide)
                 forConcurrently_ (Set.toList toShow) (applyVisibility riverWindowV1Show)
