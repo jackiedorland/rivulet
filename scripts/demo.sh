@@ -14,8 +14,8 @@ cabal build exe:rivulet 2>&1 | tee "$LOG"
 RIVULET="$(cabal list-bin exe:rivulet)"
 
 # Run as nested compositor in Sway
-export WL_DISPLAY=wayland-0
-export WAYLAND_DISPLAY=wayland-1
+# export WL_DISPLAY=wayland-0
+# export WAYLAND_DISPLAY=wayland-1
 export WLR_NO_HARDWARE_CURSORS=1
 export RIVULET_DEBUG=1
 

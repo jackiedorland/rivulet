@@ -168,7 +168,23 @@ import System.Mem
 just XF86Tools ~> performGC
 ```
 
-You can generate workspace keybindings with `zipWith` instead of writing them out:
+You can bind workspace switching without repeating each key manually:
+
+```haskell
+focusWorkspaceNumbers [Super] ["I","II","III","IV","V","VI","VII","VIII","IX"]
+sendToWorkspaceNumbers [Super, Shift] ["I","II","III","IV","V","VI","VII","VIII","IX"]
+```
+
+Or use `~>` directly with key ranges:
+
+```haskell
+[Control] #* ['1'..'9'] ~> focusWorkspace
+[Control, Shift] #* ['1'..'9'] ~> sendToWorkspace
+```
+
+For `#*` with `Char` ranges, Rivulet automatically maps each character key to a single-character workspace name string.
+
+You can still use `zipWith` if you prefer explicit pairing:
 
 ```haskell
 mapM_ (uncurry (~>)) $ zipWith (\k a -> ([Super] # k, a))
