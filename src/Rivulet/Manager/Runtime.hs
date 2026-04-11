@@ -114,9 +114,9 @@ enumerateGlobals logger display registry = do
 -- setup
 setup :: Logger -> Ptr WlRegistry -> [(Word32, String, Word32)] -> IO WMState
 setup logger registry globals = do
-    wm <- bindProtocol "river_window_manager_v1" riverWindowManagerV1Interface 4
-    xkb <- bindProtocol "river_xkb_bindings_v1" riverXkbBindingsV1Interface 2
-    input <- bindProtocol "river_input_manager_v1" riverInputManagerV1Interface 1
+    wm         <- bindProtocol "river_window_manager_v1" riverWindowManagerV1Interface 4
+    xkb        <- bindProtocol "river_xkb_bindings_v1" riverXkbBindingsV1Interface 2
+    input      <- bindProtocol "river_input_manager_v1" riverInputManagerV1Interface 1
     layerShell <- bindProtocol "river_layer_shell_v1" riverLayerShellV1Interface 1
     pure $ initialState wm xkb input layerShell
   where

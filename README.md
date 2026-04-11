@@ -14,11 +14,11 @@ Rivulet is a Haskell window manager for Wayland. It plugs into the [River compos
 
 ## Why?
 
-Most compositor configs are flat files you edit and reload, but not here. Your config is a Haskell program that gets compiled and run. Layouts are not picked from a menu. They are code. If the tiling behavior you want does not exist, you write a `Layout` instance and it just works. Assuming you can Hask it.
+Configuring your config in Haskell is super cool and awesome, basically.
 
-Rivulet does, however, ship with some default layouts, good enough for most users: A `Tall` layout like i3, a `Grid` layout, a `BinaryPartition` layout for seasoned users of `bspwm` (I miss it every day since I switched to Wayland), and more on the way!
+Rivulet's config is just a Haskell program that gets compiled and run. Layouts are not picked from a menu... if the tiling behavior you want does not exist, you write a `Layout` instance and it just works! Rivulet does, however, ship with some default layouts, good enough for most users: A `Tall` layout like i3, a `Grid` layout, a `BinaryPartition` layout for seasoned users of `bspwm` (I miss it every day since I switched to Wayland), and more on the way!
 
-Keep in mind, the project is still early and not everything is wired up yet. 
+Keep in mind, the project is still early and not everything works. Do not expect stability!
 
 ## Config
 
@@ -129,7 +129,7 @@ rivulet --debug --no-banner
 - `--debug` enables verbose runtime logs (same effect as `RIVULET_DEBUG=1`)
 - `--no-banner` suppresses startup ASCII art (same effect as `RIVULET_BANNER=false`)
 
-No real `cabal test` target yet. I'm working on it!
+No `cabal test` target yet, but it would be really useful if I had it :(
 
 ## Roadmap
 
