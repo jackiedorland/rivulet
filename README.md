@@ -39,14 +39,6 @@ main = rivulet $ do
   borders 2 (0xff222222, 0xff8ec07c) -- 0xAARRGGBB 
   layout $ Tall >>. Full >>. Grid
 
-  -- rules
-  rules $ do 
-    "gimp"    ~> Floating
-    "steam"   ~> Floating
-    "firefox" ~> (OnWorkspace "II") 
-    -- or if you prefer...
-    rule "foot" Fullscreen
-
   -- startup
   autostart $ do
     start "waybar"
@@ -73,9 +65,9 @@ main = rivulet $ do
 
   `debug` controls verbose runtime logs (`logInfo`/`logEvent`). It defaults to `False`, so only error/fatal messages are shown unless you explicitly set `debug True`.
 
-Keybindings use `[Modifiers] # key`. Modifiers are a list (`[Super, Shift]`) and keys are either a `Char` (`'q'`) or a named key (`Return`, `Space`, `XF86AudioMute`, etc.). It reads like what it is.
+Keybindings use `[Modifiers] # key`. Modifiers are a list (`[Super, Shift]`) and keys are either a `Char` (`'q'`) or a named key (`Return`, `Space`, `XF86AudioMute`, etc.).
 
-All of the above compiles and runs today. Some actions (workspace switching, monitor focus, pointer stuff) are still being wired to the runtime, but the DSL surface is stable and the shape is not going to change much.
+All of the above compiles and runs today. Some actions (workspace switching, monitor focus, pointer stuff) are still being figured out, but the DSL surface is stable and the shape is not going to change much.
 
 ## What works today
 
@@ -92,7 +84,7 @@ And windows show up where you told them to!
 
 ## Not done yet
 
-- Most exported actions (`focusNext`, `swapNext`, `sendToWorkspace`, etc.) exist in the DSL but are not wired to the runtime yet
+- Most exported actions (`focusNext`, `swapNext`, `sendToWorkspace`, etc.) exist in the DSL but are not functional yet
 - Rules and monitor config get parsed but are not fully honored during placement
 - Workspaces are one-per-monitor and fairly primitive
 - Pointer move/resize requests come in but nothing happens with them
