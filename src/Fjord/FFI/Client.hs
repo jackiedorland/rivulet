@@ -1,6 +1,6 @@
 {-# LANGUAGE CApiFFI #-}
 
-module Rivulet.FFI.Client
+module Fjord.FFI.Client
     ( WlDisplay
     , WlInterface
     , WlProxy

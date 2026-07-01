@@ -1,7 +1,7 @@
 {-# LANGUAGE CApiFFI         #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Rivulet.FFI.Protocol
+module Fjord.FFI.Protocol
     ( WlOutput
     , WlSurface
     , WlFixed (..)
@@ -138,7 +138,7 @@ import Foreign
 import Foreign.C.String   (CString, peekCString, withCString)
 import Foreign.C.Types    (CInt (..), CUInt (..))
 
-import Rivulet.FFI.Client (WlInterface, WlProxy)
+import Fjord.FFI.Client (WlInterface, WlProxy)
 
 ----- external wayland types
 
@@ -176,7 +176,7 @@ data RiverLayerShellSeatV1
 
 ----- helpers
 
-foreign import capi "rivulet_helpers.h rivulet_proxy_add_listener"
+foreign import capi "fjord_helpers.h rivulet_proxy_add_listener"
     wl_proxy_add_listener :: Ptr WlProxy -> Ptr (FunPtr (IO ())) -> Ptr () -> IO CInt
 
 nullableStr :: CString -> IO (Maybe String)

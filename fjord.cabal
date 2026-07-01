@@ -1,0 +1,64 @@
+cabal-version:       2.2
+
+name:                Fjord
+version:             0.1.0.0
+synopsis:            Functional layout engine for the River Wayland compositor
+description:         Fjord is a Haskell DSL and runtime for controlling riverwm.
+homepage:            https://github.com/jackiedorland/Fjord#readme
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Jackie Dorland
+maintainer:          me@jackiedor.land
+copyright:           2026 Jackie Dorland
+build-type:          Simple
+extra-source-files:  README.md
+
+common all
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -Wno-unused-matches -Wno-name-shadowing -O2 -funbox-strict-fields
+
+common common-extensions
+  default-extensions:
+      ImportQualifiedPost
+    , DuplicateRecordFields
+    , ExistentialQuantification
+    , FlexibleInstances
+    , FunctionalDependencies
+    , MultiParamTypeClasses
+    , RankNTypes
+    , UndecidableInstances
+
+library
+  import: all, common-extensions
+
+  exposed-modules:
+    Fjord,
+    Fjord.Callbacks,
+    Fjord.Runtime,
+    Fjord.FFI.Client,
+    Fjord.FFI.Protocol,
+    Fjord.Layout,
+    Fjord.Model
+
+  hs-source-dirs:   src
+
+  include-dirs:     src/Fjord/Foreign
+
+  c-sources:
+      src/Fjord/Foreign/river-window-management-v1.c
+    , src/Fjord/Foreign/river-xkb-bindings-v1.c
+    , src/Fjord/Foreign/river-input-management-v1.c
+    , src/Fjord/Foreign/river-layer-shell-v1.c
+    , src/Fjord/Foreign/fjord_helpers.c
+
+  pkgconfig-depends:  wayland-client
+
+  build-depends:
+      containers,
+      base >=4.14 && <5,
+      stm
+
+  default-language: Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/Fjord
