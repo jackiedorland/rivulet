@@ -1,14 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 module Fjord.Callbacks where
 
-import Fjord.Model
+import Fjord.Types
 
 import Foreign
 import Control.Concurrent.STM
 import Data.Map qualified as Map
 import Data.IORef
 import Fjord.FFI.Protocol
-import Fjord.Log
+
+infixl 1 <<<
+(<<<) :: TQueue a -> a -> STM ()
+(<<<) = writeTQueue
+
+fi :: (Integral a, Num b) => a -> b
+fi a = fromIntegral a
 
 class FromPtr a p where
     fromPtr :: Ptr p -> a
@@ -25,8 +32,9 @@ instance FromPtr SeatId RiverSeatV1 where
     fromPtr =
         SeatId . ptrToWordPtr . castPtr
 
-
-newtype Destructor = Destructor (IO ())
+instance FromPtr ShellId RiverShellSurfaceV1 where
+    fromPtr =
+        ShellId . ptrToWordPtr . castPtr
 
 initWindowListener :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> WindowListener
 initWindowListener q dt =
@@ -93,12 +101,12 @@ initWindowManagerListener q dt =
 handleWmUnavailable :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
 handleWmUnavailable q _ = do
     atomically $ 
-        writeTQueue q $ RiverUnavailable
+        q <<< RiverUnavailable
 
 handleWmFinished :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
 handleWmFinished q _ = do
     atomically $ 
-        writeTQueue q $ RiverFinished 
+        q <<< RiverFinished 
 
 handleWmManageStart :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
 handleWmManageStart q wm = do
@@ -113,12 +121,12 @@ handleWmRenderStart q wm = do
 handleWmSessionLocked :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
 handleWmSessionLocked q _ = do
     atomically $
-        writeTQueue q $ RiverLocked
+        q <<< RiverLocked
 
 handleWmSessionUnlocked :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
 handleWmSessionUnlocked q wm = do
     atomically $ 
-        writeTQueue q $ RiverUnlocked
+        q <<< RiverUnlocked
 
 {- object creation -}
 
@@ -132,7 +140,7 @@ handleWmWindow q dt wm win = do
         Map.insert (WindowObject wid) (Destructor cleanupPtr) 
 
     atomically $ 
-        writeTQueue q $ WinCreated wid
+        q <<< WinCreated wid
 
 handleWmOutput :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> Ptr RiverOutputV1 -> IO ()
 handleWmOutput q dt wm out = do
@@ -144,7 +152,7 @@ handleWmOutput q dt wm out = do
         Map.insert (OutputObject oid) (Destructor cleanupPtr) 
 
     atomically $ 
-        writeTQueue q $ OutputCreated oid
+        q <<< OutputCreated oid
 
 handleWmSeat :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> Ptr RiverSeatV1 -> IO ()
 handleWmSeat q dt wm seat = do
@@ -156,126 +164,146 @@ handleWmSeat q dt wm seat = do
         Map.insert (SeatObject sid) (Destructor cleanupPtr) 
 
     atomically $ 
-        writeTQueue q $ SeatCreated sid
+        q <<< SeatCreated sid
 
 {- window handlers -}
 
 handleWinClosed :: TQueue Event -> Ptr RiverWindowV1 -> IO ()
 handleWinClosed q win = atomically $
-    writeTQueue q $ WinClosed (fromPtr win)
+    q <<< WinClosed (fromPtr win)
 
 handleWinDimensionsHint :: TQueue Event -> Ptr RiverWindowV1 -> Int -> Int -> Int -> Int -> IO ()
-handleWinDimensionsHint q win minW minH maxW maxH = do
-    pure ()
+handleWinDimensionsHint q win minW minH maxW maxH = atomically $
+        q <<< WinDimensionsHint (fromPtr win) 
+            (fi minW)
+            (fi minH)
+            (fi maxW)
+            (fi maxH)
 
 handleWinDimensions :: TQueue Event -> Ptr RiverWindowV1 -> Int -> Int -> IO ()
-handleWinDimensions q win w h = do
-    pure ()
+handleWinDimensions q win w h = atomically $
+    q <<< WinDimensions (fromPtr win) (fi w) (fi h)
 
 handleWinAppId :: TQueue Event -> Ptr RiverWindowV1 -> Maybe String -> IO ()
-handleWinAppId q win appId = do
-    pure ()
+handleWinAppId q win appId = atomically $
+    q <<< WinSetAppId (fromPtr win) appId
 
 handleWinTitle :: TQueue Event -> Ptr RiverWindowV1 -> Maybe String -> IO ()
-handleWinTitle q win title = do
-    pure ()
+handleWinTitle q win title = atomically $
+    q <<< WinSetTitle (fromPtr win) title
 
 handleWinParent :: TQueue Event -> Ptr RiverWindowV1 -> Maybe (Ptr RiverWindowV1) -> IO ()
-handleWinParent q win parent = do
-    pure ()
+handleWinParent q win parent = atomically $
+    q <<< WinSetParent (fromPtr win) (fromPtr <$> parent)
 
 handleWinDecorationHint :: TQueue Event -> Ptr RiverWindowV1 -> Word32 -> IO ()
-handleWinDecorationHint q win hint = do
-    pure ()
+handleWinDecorationHint q win hint = atomically $
+    q <<< WinDecorationHint (fromPtr win) (
+        case hint of
+            0 -> Just NoDecoration
+            1 -> Just ClientDecoration
+            2 -> Just ServerDecoration
+            3 -> Just BothDecorations
+            _ -> Nothing
+        )
 
 handleWinPointerMoveReq :: TQueue Event -> Ptr RiverWindowV1 -> Ptr RiverSeatV1 -> IO ()
-handleWinPointerMoveReq q win seat = do
-    pure ()
+handleWinPointerMoveReq q win seat = atomically $
+    q <<< WinPtrMoveReq (fromPtr win) (fromPtr seat)
+
+decodeEdges :: Word32 -> [Edge]
+decodeEdges x =
+    concat
+        [ [Top       | x .&. 1 /= 0]
+        , [Bottom    | x .&. 2 /= 0]
+        , [LeftEdge  | x .&. 4 /= 0]
+        , [RightEdge | x .&. 8 /= 0]
+        ]
 
 handleWinPointerResizeReq :: TQueue Event -> Ptr RiverWindowV1 -> Ptr RiverSeatV1 -> Word32 -> IO ()
-handleWinPointerResizeReq q win seat edges = do
-    pure ()
+handleWinPointerResizeReq q win seat edges = atomically $
+    q <<< WinPtrResizeReq (fromPtr win) (fromPtr seat) (decodeEdges edges)
 
 handleWinShowMenuReq :: TQueue Event -> Ptr RiverWindowV1 -> Int -> Int -> IO ()
 handleWinShowMenuReq q win x y = do
-    pure ()
+    pure () -- i don't care
 
 handleWinMaximizeReq :: TQueue Event -> Ptr RiverWindowV1 -> IO ()
-handleWinMaximizeReq q win = do
-    pure ()
+handleWinMaximizeReq q win = atomically $
+    q <<< WinMaximizeReq (fromPtr win)
 
 handleWinUnmaximizeReq :: TQueue Event -> Ptr RiverWindowV1 -> IO ()
-handleWinUnmaximizeReq q win = do
-    pure ()
+handleWinUnmaximizeReq q win = atomically $
+    q <<< WinUnmaximizeReq (fromPtr win)
 
 handleWinFullscreenReq :: TQueue Event -> Ptr RiverWindowV1 -> Maybe (Ptr RiverOutputV1) -> IO ()
-handleWinFullscreenReq q win output = do
-    pure ()
+handleWinFullscreenReq q win output = atomically $
+    q <<< WinFullscreenReq (fromPtr win) (fromPtr <$> output)
 
 handleWinExitFullscreenReq :: TQueue Event -> Ptr RiverWindowV1 -> IO ()
-handleWinExitFullscreenReq q win = do
-    pure ()
+handleWinExitFullscreenReq q win = atomically $
+    q <<< WinExitFullscreenReq (fromPtr win)
 
 handleWinMinimizeReq :: TQueue Event -> Ptr RiverWindowV1 -> IO ()
-handleWinMinimizeReq q win = do
-    pure ()
+handleWinMinimizeReq q win = atomically $
+    q <<< WinMinimizeReq (fromPtr win)
 
 handleWinUnreliablePid :: TQueue Event -> Ptr RiverWindowV1 -> Int -> IO ()
-handleWinUnreliablePid q win pid = do
-    pure ()
+handleWinUnreliablePid q win pid = atomically $
+    q <<< WinUnreliablePID (fromPtr win) (fi pid)
 
 {- outputs -}
 
 handleOutRemoved :: TQueue Event -> Ptr RiverOutputV1 -> IO ()
-handleOutRemoved q out = do
-    pure ()
+handleOutRemoved q out = atomically $
+    q <<< OutRemoved (fromPtr out)
 
 handleOutWlOutput :: TQueue Event -> Ptr RiverOutputV1 -> Word32 -> IO ()
-handleOutWlOutput q out wl = do
-    pure ()
+handleOutWlOutput q out wl = atomically $
+    q <<< OutWlName (fromPtr out) (fi wl)
 
 handleOutPosition :: TQueue Event -> Ptr RiverOutputV1 -> Int -> Int -> IO ()
-handleOutPosition q out x y = do
-    pure ()
+handleOutPosition q out x y = atomically $
+    q <<< OutPosition (fromPtr out) (fi x) (fi y)
 
 handleOutDimensions :: TQueue Event -> Ptr RiverOutputV1 -> Int -> Int -> IO ()
-handleOutDimensions q out w h = do
-    pure ()
+handleOutDimensions q out w h = atomically $
+    q <<< OutDimensions (fromPtr out) (fi w) (fi h)
 
 {- seats -}
 
 handleSeatRemoved :: TQueue Event -> Ptr RiverSeatV1 -> IO ()
-handleSeatRemoved q seat = do
-    pure ()
+handleSeatRemoved q seat = atomically $
+    q <<< SeatRemoved (fromPtr seat)
 
 handleSeatWlSeat :: TQueue Event -> Ptr RiverSeatV1 -> Word32 -> IO ()
-handleSeatWlSeat q seat wl = do
-    pure ()
+handleSeatWlSeat q seat wl = atomically $
+    q <<< SeatWlName (fromPtr seat) (fi wl)
 
 handleSeatPointerEnter :: TQueue Event -> Ptr RiverSeatV1 -> Ptr RiverWindowV1 -> IO ()
-handleSeatPointerEnter q seat win = do
-    pure ()
+handleSeatPointerEnter q seat win = atomically $
+    q <<< SeatPtrEnter (fromPtr seat) (fromPtr win)
 
 handleSeatPointerLeave :: TQueue Event -> Ptr RiverSeatV1 -> IO ()
-handleSeatPointerLeave q seat = do
-    pure ()
+handleSeatPointerLeave q seat = atomically $
+    q <<< SeatPtrLeave (fromPtr seat)
 
 handleSeatWindowInteraction :: TQueue Event -> Ptr RiverSeatV1 -> Ptr RiverWindowV1 -> IO ()
-handleSeatWindowInteraction q seat win = do
-    pure ()
+handleSeatWindowInteraction q seat win = atomically $
+    q <<< SeatWinInteraction (fromPtr seat) (fromPtr win)
 
 handleSeatShellInteraction :: TQueue Event -> Ptr RiverSeatV1 -> Ptr RiverShellSurfaceV1 -> IO ()
-handleSeatShellInteraction q seat shell = do
-    pure ()
+handleSeatShellInteraction q seat shell = atomically $
+    q <<< SeatShellInteraction (fromPtr seat) (fromPtr shell)
 
 handleSeatOpDelta :: TQueue Event -> Ptr RiverSeatV1 -> Int -> Int -> IO ()
-handleSeatOpDelta q seat dx dy = do
-    pure ()
+handleSeatOpDelta q seat dx dy = atomically $
+    q <<< SeatOpDelta (fromPtr seat) (fi dx) (fi dy)
 
 handleSeatOpRelease :: TQueue Event -> Ptr RiverSeatV1 -> IO ()
-handleSeatOpRelease q seat = do
-    pure ()
+handleSeatOpRelease q seat = atomically $
+    q <<< SeatOpRelease (fromPtr seat)
 
 handleSeatPointerPosition :: TQueue Event -> Ptr RiverSeatV1 -> Int -> Int -> IO ()
-handleSeatPointerPosition q seat x y = do
-    pure ()
+handleSeatPointerPosition q seat x y = atomically $
+    q <<< SeatPtrPos (fromPtr seat) (fi x) (fi y)

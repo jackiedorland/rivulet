@@ -1,5 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Fjord.Model where
+module Fjord.Types where
 
 import Fjord.Layout
 
@@ -7,6 +7,9 @@ import Foreign
 import Data.Map
 import Data.Set
 import Numeric (showHex)
+import Data.IORef
+import Control.Concurrent.STM
+import Data.Text
 
 newtype WindowId    = WindowId WordPtr deriving (Ord, Eq)
 newtype SeatId      = SeatId WordPtr deriving (Ord, Eq)
@@ -38,8 +41,20 @@ data ObjectId
     | OutputObject OutputId
     | SeatObject SeatId
     deriving (Show, Ord, Eq)
-    
-newtype Edges = Edges Word8 deriving (Show)
+
+data Level = Debug | Info deriving (Ord, Eq)
+
+data Msg = Event Event 
+         | Log Level Text
+         | Warn Text
+         | Fatal Text 
+
+data Edge  = None
+           | Top
+           | Bottom
+           | LeftEdge
+           | RightEdge
+           deriving Show
 
 data Event -- river_window_manager_v1
            = RiverUnavailable 
@@ -56,9 +71,9 @@ data Event -- river_window_manager_v1
            | WinSetAppId WindowId (Maybe String)
            | WinSetTitle WindowId (Maybe String)
            | WinSetParent WindowId (Maybe WindowId) -- ID of parent window
-           | WinDecorationHint WindowId Word8
+           | WinDecorationHint WindowId (Maybe DecorationHint)
            | WinPtrMoveReq WindowId SeatId -- ID of seat where pointer move has been requested; wm should call river_seat_v1.op_start_pointer
-           | WinPtrResizeReq WindowId SeatId Edges -- see above ^, also edges bitfield 
+           | WinPtrResizeReq WindowId SeatId [Edge] -- see above ^, also edges bitfield 
            | WinShowDecorationMenu WindowId Int Int -- likely ignored
            | WinMaximizeReq WindowId 
            | WinUnmaximizeReq WindowId 
@@ -83,7 +98,12 @@ data Event -- river_window_manager_v1
            | SeatPtrPos SeatId Int Int
 
 data Color = Color Word32 Word32 Word32 Word32 -- R G B A, all 32-bit uint for some reason.. freaky!
-data Border = Border Edges Word16 Color  -- edges bitfield, width, then RGBA hex value
+data Border = Border [Edge] Word16 Color  -- edges bitfield, width, then RGBA hex value
+data DecorationHint = NoDecoration 
+                    | ClientDecoration
+                    | ServerDecoration
+                    | BothDecorations
+                    deriving Show
 
 newtype Ratio = Ratio Word16 deriving Show
 data Tree a
@@ -94,10 +114,26 @@ data Tree a
 
 data Direction = Horizontal | Vertical deriving Show
 
+defaultWindow :: WindowId -> Window
+defaultWindow wid =
+    Window
+        { windowId = wid
+        , node = Nothing
+        , title = Nothing
+        , app_id = Nothing
+        , parent = Nothing
+        , wl_name = Nothing
+        , dim = Rectangle 0 0 0 0
+        , border = Border [] 0 (Color 0 0 0 0)
+        , hidden = False
+        , fullscreen = False
+        , csd = False
+        }
+
 data Window = Window {    
     -- object identification + node
     windowId :: WindowId
-  , node :: NodeId
+  , node :: Maybe NodeId
 
     -- (kind of) identification info
   , app_id :: Maybe String
@@ -121,6 +157,8 @@ data Seat = Seat {
   , wl_name :: Maybe Word
   , opDelta :: (Int, Int) -- dx, dy
   , ptrPos  :: (Int, Int) -- x, y
+  , mouseFocus    :: WindowId
+  , keyboardFocus :: WindowId
 }
 
 data Workspace = Workspace { 
@@ -143,6 +181,17 @@ data State = State { -- maybe now i'll keep formatting consistent lol
     windows       :: Map WindowId Window
   , outputs       :: Map OutputId Output
   , seats         :: Map SeatId Seat
-  , workspaces    :: Map Workspace Workspace
+  , workspaces    :: Map WorkspaceId Workspace
   , shells        :: Set ShellId
+
+  , locked        :: Bool
+}
+
+newtype Destructor = Destructor (IO ())
+
+data Runtime = Runtime {
+    state :: IORef State
+  , events :: TQueue Event
+  , destructors :: IORef (Map ObjectId Destructor)
+  , logs :: TQueue Msg
 }

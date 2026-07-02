@@ -1,18 +1,33 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Fjord.Log where
 
-import Fjord.Model
+import Fjord.Types
 
 import Data.Text (Text, pack)
 import Data.Text.IO
 import System.IO (stdout, stderr)
+import System.Exit
+import Control.Concurrent.STM
 
-data Level = Verbose | Debug | Info deriving (Ord, Eq)
+logMsg :: Runtime -> Msg -> IO ()
+logMsg rt msg = atomically $
+    writeTQueue (logs rt) msg
 
-data Msg = Event Event 
-         | Log Level Text
-         | Warn Text
-         | Fatal Text 
+info :: Runtime -> Text -> IO ()
+info rt =
+    logMsg rt . Log Info
+
+debug :: Runtime -> Text -> IO ()
+debug rt =
+    logMsg rt . Log Debug
+
+warn :: Runtime -> Text -> IO ()
+warn rt =
+    logMsg rt . Warn
+
+fatal :: Runtime -> Text -> IO ()
+fatal rt =
+    logMsg rt . Fatal
 
 emit :: Level -> Msg -> IO ()
 emit l m = do
@@ -22,7 +37,9 @@ emit l m = do
             do hPutStrLn stdout ("[Log] " <> t)
             else pure ()
         Warn t -> hPutStrLn stderr ("[Warn] " <> t) 
-        Fatal t -> hPutStrLn stderr ("[FATAL] " <> t)
+        Fatal t -> do 
+            hPutStrLn stderr ("[FATAL] " <> t)
+            exitFailure
 
 prettyPrint :: Event -> Text
 prettyPrint e = case e of

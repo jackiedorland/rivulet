@@ -37,7 +37,7 @@ library
     Fjord.FFI.Client,
     Fjord.FFI.Protocol,
     Fjord.Layout,
-    Fjord.Model,
+    Fjord.Types,
     Fjord.Log
 
   hs-source-dirs:   src
