@@ -1,57 +1,34 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Fjord.Callbacks where
 
 import Fjord.Model
 
 import Foreign
 import Control.Concurrent.STM
-import Data.Map
+import Data.Map qualified as Map
 import Data.IORef
 import Fjord.FFI.Protocol
+import Fjord.Log
+
+class FromPtr a p where
+    fromPtr :: Ptr p -> a
+
+instance FromPtr WindowId RiverWindowV1 where
+    fromPtr =
+        WindowId . ptrToWordPtr . castPtr
+
+instance FromPtr OutputId RiverOutputV1 where
+    fromPtr =
+        OutputId . ptrToWordPtr . castPtr
+
+instance FromPtr SeatId RiverSeatV1 where
+    fromPtr =
+        SeatId . ptrToWordPtr . castPtr
+
 
 newtype Destructor = Destructor (IO ())
 
-data Event -- river_window_manager_v1
-           = RiverUnavailable 
-           | RiverFinished
-           | RiverLocked
-           | RiverUnlocked
-           | WinCreated WindowId
-           | OutputCreated OutputId
-           | SeatCreated SeatId
-           -- river_window_v1
-           | WinClosed WindowId 
-           | WinDimensionsHint WindowId Word Word Word Word -- min_width, max_width, max_width, max_height
-           | WinDimensions WindowId Word Word -- width, height
-           | WinSetAppId WindowId (Maybe String)
-           | WinSetTitle WindowId (Maybe String)
-           | WinSetParent WindowId (Maybe WindowId) -- ID of parent window
-           | WinDecorationHint WindowId Word8
-           | WinPtrMoveReq WindowId SeatId -- ID of seat where pointer move has been requested; wm should call river_seat_v1.op_start_pointer
-           | WinPtrResizeReq WindowId SeatId Edges -- see above ^, also edges bitfield 
-           | WinShowDecorationMenu WindowId Int Int -- likely ignored
-           | WinMaximizeReq WindowId 
-           | WinUnmaximizeReq WindowId 
-           | WinFullscreenReq WindowId (Maybe OutputId) -- output where the window wants to be fullscreened
-           | WinExitFullscreenReq WindowId 
-           | WinMinimizeReq WindowId 
-           | WinUnreliablePID WindowId Word -- pid of software
-           -- river_output_v1
-           | OutRemoved OutputId 
-           | OutWlName OutputId Word -- Wayland internal name (or uint id)
-           | OutPosition OutputId Int Int -- x, y
-           | OutDimensions OutputId Word Word -- width, height
-           -- river_seat_v1
-           | SeatRemoved SeatId
-           | SeatWlName SeatId Word -- Wayland internal name (or uint id)
-           | SeatPtrEnter SeatId WindowId -- window that pointer entered
-           | SeatPtrLeave SeatId -- see above
-           | SeatWinInteraction SeatId WindowId -- Window that pointer interacted with
-           | SeatShellInteraction SeatId ShellId -- shell surface that pointer interacted with
-           | SeatOpDelta SeatId Int Int -- Δx, Δy
-           | SeatOpRelease SeatId
-           | SeatPtrPos SeatId Int Int 
-
-initWindowListener :: TQueue Event -> IORef (Map ObjectId Destructor) -> WindowListener
+initWindowListener :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> WindowListener
 initWindowListener q dt =
     WindowListener
         { onWinClosed            = handleWinClosed q
@@ -74,7 +51,7 @@ initWindowListener q dt =
         , onWinIdentifier        = \_ _ -> pure ()
         }
 
-initOutputListener :: TQueue Event -> IORef (Map ObjectId Destructor) -> OutputListener
+initOutputListener :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> OutputListener
 initOutputListener q dt =
     OutputListener
         { onOutRemoved    = handleOutRemoved q
@@ -83,7 +60,7 @@ initOutputListener q dt =
         , onOutDimensions = handleOutDimensions q
         }
 
-initSeatListener :: TQueue Event -> IORef (Map ObjectId Destructor) -> SeatListener
+initSeatListener :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> SeatListener
 initSeatListener q dt =
     SeatListener
         { onSeatRemoved           = handleSeatRemoved q
@@ -97,10 +74,10 @@ initSeatListener q dt =
         , onSeatPointerPosition   = handleSeatPointerPosition q
         }
 
-initWindowManagerListener :: TQueue Event -> IORef (Map ObjectId Destructor) -> WindowManagerListener
+initWindowManagerListener :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> WindowManagerListener
 initWindowManagerListener q dt =
     WindowManagerListener
-        { onWmUnavailable     = handleWmUnavailable
+        { onWmUnavailable     = handleWmUnavailable q
         , onWmFinished        = handleWmFinished q
         , onWmManageStart     = handleWmManageStart q
         , onWmRenderStart     = handleWmRenderStart q
@@ -113,15 +90,15 @@ initWindowManagerListener q dt =
 
 {- top-level river handlers -}
 
-handleWmUnavailable :: IORef (Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> IO ()
-handleWmUnavailable ptr = do
-    
-    pure ()
+handleWmUnavailable :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
+handleWmUnavailable q _ = do
+    atomically $ 
+        writeTQueue q $ RiverUnavailable
 
 handleWmFinished :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
-handleWmFinished q wm = do
-    -- enqueue RiverFinished
-    pure ()
+handleWmFinished q _ = do
+    atomically $ 
+        writeTQueue q $ RiverFinished 
 
 handleWmManageStart :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
 handleWmManageStart q wm = do
@@ -134,64 +111,58 @@ handleWmRenderStart q wm = do
     pure ()
 
 handleWmSessionLocked :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
-handleWmSessionLocked q wm = do
-    -- enqueue RiverLocked
-    pure ()
+handleWmSessionLocked q _ = do
+    atomically $
+        writeTQueue q $ RiverLocked
 
 handleWmSessionUnlocked :: TQueue Event -> Ptr RiverWindowManagerV1 -> IO ()
 handleWmSessionUnlocked q wm = do
-    -- enqueue RiverUnlocked
-    pure ()
+    atomically $ 
+        writeTQueue q $ RiverUnlocked
 
 {- object creation -}
 
-handleWmWindow :: TQueue Event -> IORef (Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> Ptr RiverWindowV1 -> IO ()
+handleWmWindow :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> Ptr RiverWindowV1 -> IO ()
 handleWmWindow q dt wm win = do
-    let wid = WindowId $
-            ptrToWordPtr $
-                castPtr win
+    let wid = fromPtr win
 
-    -- install window listener
+    cleanupPtr <- riverWindowV1AddListener win $ initWindowListener q dt 
 
-    -- register destructor
+    modifyIORef' dt $ 
+        Map.insert (WindowObject wid) (Destructor cleanupPtr) 
 
-    -- enqueue WinCreated wid
+    atomically $ 
+        writeTQueue q $ WinCreated wid
 
-    pure ()
-
-handleWmOutput :: TQueue Event -> IORef (Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> Ptr RiverOutputV1 -> IO ()
+handleWmOutput :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> Ptr RiverOutputV1 -> IO ()
 handleWmOutput q dt wm out = do
-    let oid = OutputId $
-            ptrToWordPtr $
-                castPtr out
+    let oid = fromPtr out
 
-    -- install output listener
+    cleanupPtr <- riverOutputV1AddListener out $ initOutputListener q dt 
 
-    -- register destructor
+    modifyIORef' dt $ 
+        Map.insert (OutputObject oid) (Destructor cleanupPtr) 
 
-    -- enqueue OutputCreated oid
+    atomically $ 
+        writeTQueue q $ OutputCreated oid
 
-    pure ()
-
-handleWmSeat :: TQueue Event -> IORef (Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> Ptr RiverSeatV1 -> IO ()
+handleWmSeat :: TQueue Event -> IORef (Map.Map ObjectId Destructor) -> Ptr RiverWindowManagerV1 -> Ptr RiverSeatV1 -> IO ()
 handleWmSeat q dt wm seat = do
-    let sid = SeatId $
-            ptrToWordPtr $
-                castPtr seat
+    let sid = fromPtr seat
 
-    -- install seat listener
+    cleanupPtr <- riverSeatV1AddListener seat $ initSeatListener q dt 
 
-    -- register destructor
+    modifyIORef' dt $ 
+        Map.insert (SeatObject sid) (Destructor cleanupPtr) 
 
-    -- enqueue SeatCreated sid
-
-    pure ()
+    atomically $ 
+        writeTQueue q $ SeatCreated sid
 
 {- window handlers -}
 
 handleWinClosed :: TQueue Event -> Ptr RiverWindowV1 -> IO ()
-handleWinClosed q win = do
-    pure ()
+handleWinClosed q win = atomically $
+    writeTQueue q $ WinClosed (fromPtr win)
 
 handleWinDimensionsHint :: TQueue Event -> Ptr RiverWindowV1 -> Int -> Int -> Int -> Int -> IO ()
 handleWinDimensionsHint q win minW minH maxW maxH = do

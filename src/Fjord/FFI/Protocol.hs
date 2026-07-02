@@ -140,6 +140,7 @@ import Foreign.C.Types    (CInt (..), CUInt (..))
 
 import Fjord.FFI.Client (WlInterface, WlProxy)
 
+
 ----- external wayland types
 
 data WlSurface

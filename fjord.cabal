@@ -37,7 +37,8 @@ library
     Fjord.FFI.Client,
     Fjord.FFI.Protocol,
     Fjord.Layout,
-    Fjord.Model
+    Fjord.Model,
+    Fjord.Log
 
   hs-source-dirs:   src
 
@@ -53,6 +54,7 @@ library
   pkgconfig-depends:  wayland-client
 
   build-depends:
+      text,
       containers,
       base >=4.14 && <5,
       stm
@@ -61,4 +63,4 @@ library
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/Fjord
+  location: https://github.com/jackiedorland/rivulet
